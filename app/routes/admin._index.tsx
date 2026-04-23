@@ -1,5 +1,5 @@
 import { useEffect, useId, useRef, useState } from "react";
-import { useFetcher } from "react-router";
+import { useFetcher, useRevalidator } from "react-router";
 import type { Route } from "./+types/admin._index";
 import type { EmailTemplate } from "~/lib/db.server";
 import { TemplateBodyEditor } from "~/components/template-body-editor";
@@ -76,6 +76,8 @@ export async function action({ request }: Route.ActionArgs) {
   return null;
 }
 
+const HOUR_MS = 60 * 60 * 1000;
+
 type ActiveModal = null | "new" | number;
 
 function previewBody(body: string, maxChars = 240): string {
@@ -105,7 +107,9 @@ function DragHandle({
       aria-label="Drag to reorder"
       title="Drag to reorder"
       className={`flex cursor-grab touch-none items-center justify-center rounded p-1 leading-none text-zinc-500 active:cursor-grabbing ${
-        disabled ? "cursor-not-allowed opacity-40" : "hover:bg-zinc-800 hover:text-zinc-300"
+        disabled
+          ? "cursor-not-allowed opacity-40"
+          : "hover:bg-zinc-800 hover:text-zinc-300"
       }`}
       onClick={(e) => e.stopPropagation()}
       onDragStart={(e) => {
@@ -130,11 +134,15 @@ function DragHandle({
 export default function AdminIndex({ loaderData }: Route.ComponentProps) {
   const { templates } = loaderData;
   const fetcher = useFetcher<typeof action>();
+  const revalidator = useRevalidator();
   const [activeModal, setActiveModal] = useState<ActiveModal>(null);
   const [deleteConfirmId, setDeleteConfirmId] = useState<number | null>(null);
+  const [lastRefreshedAt, setLastRefreshedAt] = useState<number | null>(null);
+  const [now, setNow] = useState(() => Date.now());
   const titleId = useId();
   const deleteConfirmTitleId = useId();
   const prevFetcherState = useRef(fetcher.state);
+  const prevRevalidatorState = useRef(revalidator.state);
 
   const isOpen = activeModal !== null;
   const isNew = activeModal === "new";
@@ -152,18 +160,40 @@ export default function AdminIndex({ loaderData }: Route.ComponentProps) {
       ? fetcher.data.formError
       : undefined;
 
+  const refreshBusy = revalidator.state === "loading";
+
+  useEffect(() => {
+    setLastRefreshedAt(Date.now());
+  }, []);
+
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 60_000);
+    return () => clearInterval(id);
+  }, []);
+
+  useEffect(() => {
+    if (
+      prevRevalidatorState.current === "loading" &&
+      revalidator.state === "idle"
+    ) {
+      setLastRefreshedAt(Date.now());
+    }
+    prevRevalidatorState.current = revalidator.state;
+  }, [revalidator.state]);
+
   useEffect(() => {
     // Fetcher goes submitting → loading (revalidate) → idle. Only checking
     // submitting→idle misses the final transition, so the modal never closed.
-    if (
-      prevFetcherState.current !== "idle" &&
-      fetcher.state === "idle" &&
-      fetcher.data &&
-      typeof fetcher.data === "object" &&
-      "ok" in fetcher.data &&
-      fetcher.data.ok
-    ) {
-      setActiveModal(null);
+    if (prevFetcherState.current !== "idle" && fetcher.state === "idle") {
+      const d = fetcher.data;
+      if (d && typeof d === "object") {
+        if ("ok" in d && d.ok) {
+          setActiveModal(null);
+        }
+        if (("ok" in d && d.ok) || ("reordered" in d && d.reordered)) {
+          setLastRefreshedAt(Date.now());
+        }
+      }
     }
     prevFetcherState.current = fetcher.state;
   }, [fetcher.state, fetcher.data]);
@@ -211,8 +241,8 @@ export default function AdminIndex({ loaderData }: Route.ComponentProps) {
   const listMutationBusy = fetcher.state !== "idle";
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-wrap items-end justify-between gap-4">
+    <div className="space-y-4">
+      <div className="space-y-5">
         <div>
           <h1 className="text-2xl font-semibold text-white">
             Lichess email templates
@@ -234,13 +264,48 @@ export default function AdminIndex({ loaderData }: Route.ComponentProps) {
             the extension.
           </p>
         </div>
-        <button
-          type="button"
-          onClick={() => setActiveModal("new")}
-          className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-500"
-        >
-          New template
-        </button>
+
+        <div className="flex items-end justify-between gap-3">
+          <button
+            type="button"
+            onClick={() => revalidator.revalidate()}
+            disabled={refreshBusy || listMutationBusy}
+            className="inline-flex items-center gap-1.5 rounded text-sm font-medium text-zinc-400 underline-offset-2 hover:text-zinc-200 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/45 disabled:cursor-not-allowed disabled:no-underline disabled:opacity-50"
+          >
+            <svg
+              className={`h-4 w-4 shrink-0 ${refreshBusy ? "animate-spin" : ""}`}
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth={2}
+              aria-hidden
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+              />
+            </svg>
+            {refreshBusy ? "Refreshing…" : "Refresh"}
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveModal("new")}
+            className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-500"
+          >
+            New template
+          </button>
+        </div>
+
+        {lastRefreshedAt !== null && now - lastRefreshedAt > HOUR_MS ? (
+          <p
+            className="rounded-md border border-amber-900/40 bg-amber-950/25 px-3 py-2.5 text-sm leading-snug text-amber-100/90"
+            role="status"
+          >
+            It has been over an hour since this list was loaded. Click Refresh
+            to pick up any changes from others.
+          </p>
+        ) : null}
       </div>
 
       {templates.length === 0 ? (
