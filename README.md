@@ -1,87 +1,49 @@
-# Welcome to React Router!
+# Hermes
 
-A modern, production-ready template for building full-stack React applications using React Router.
+Hermes serves **email templates** to the
+[lichess-gmail](https://github.com/ornicar/lichess-gmail) browser extension and
+ships a small web UI to **view and manage** those templates. The email templates
+are publicly readable but requires auth via
+[Authentik](https://auth.lichess.app/) to edit.
 
-[![Open in StackBlitz](https://developer.stackblitz.com/img/open_in_stackblitz.svg)](https://stackblitz.com/github/remix-run/react-router-templates/tree/main/default)
+## What it does
 
-## Features
+- **Extension consumers**: The lichess-gmail extension fetches template data
+  from Hermes
+- **Editors**: Use the **admin** UI to edit templates which requires
+  authentication.
 
-- 🚀 Server-side rendering
-- ⚡️ Hot Module Replacement (HMR)
-- 📦 Asset bundling and optimization
-- 🔄 Data loading and mutations
-- 🔒 TypeScript by default
-- 🎉 TailwindCSS for styling
-- 📖 [React Router docs](https://reactrouter.com/)
+## Development
 
-## Getting Started
-
-### Installation
-
-Install the dependencies:
+Install dependencies and start the dev server (Vite + React Router):
 
 ```bash
 npm install
-```
-
-### Development
-
-Start the development server with HMR:
-
-```bash
 npm run dev
 ```
 
-Your application will be available at `http://localhost:5173`.
+The app is served at `http://localhost:5173` by default.
 
-## Building for Production
+## Configuration
 
-Create a production build:
+Copy `.env.example` to `.env` and set at least `APP_URL`, `SESSION_SECRET`, and
+the Authentik values (`AUTHENTIK_ISSUER`, `AUTHENTIK_CLIENT_ID`,
+`AUTHENTIK_CLIENT_SECRET`). Optional: `DATABASE_PATH` for the SQLite file,
+`PORT` in production. See inline comments in `.env.example` for details.
+
+## Production
+
+Build and run:
 
 ```bash
 npm run build
+npm start
 ```
 
-## Deployment
+A `Dockerfile` is for containerized deployment; map storage/volumes for the
+database path if you set `DATABASE_PATH` outside the image.
 
-### Docker Deployment
+## Stack
 
-To build and run using Docker:
-
-```bash
-docker build -t my-app .
-
-# Run the container
-docker run -p 3000:3000 my-app
-```
-
-The containerized application can be deployed to any platform that supports Docker, including:
-
-- AWS ECS
-- Google Cloud Run
-- Azure Container Apps
-- Digital Ocean App Platform
-- Fly.io
-- Railway
-
-### DIY Deployment
-
-If you're familiar with deploying Node applications, the built-in app server is production-ready.
-
-Make sure to deploy the output of `npm run build`
-
-```
-├── package.json
-├── package-lock.json (or pnpm-lock.yaml, or bun.lockb)
-├── build/
-│   ├── client/    # Static assets
-│   └── server/    # Server-side code
-```
-
-## Styling
-
-This template comes with [Tailwind CSS](https://tailwindcss.com/) already configured for a simple default starting experience. You can use whatever CSS framework you prefer.
-
----
-
-Built with ❤️ using React Router.
+React Router 7, React 19, TypeScript, Tailwind CSS, SQLite (via
+`better-sqlite3`).
