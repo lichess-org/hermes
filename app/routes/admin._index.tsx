@@ -15,8 +15,8 @@ export default function AdminIndex({ loaderData }: Route.ComponentProps) {
         <div>
           <h1 className="text-2xl font-semibold text-white">Email templates</h1>
           <p className="mt-1 text-sm text-zinc-500">
-            Shared templates visible to everyone via the public API. Only signed-in
-            users can change them.
+            These feed the lichess-gmail extension. Reads are unauthenticated; only
+            signed-in staff can edit.
           </p>
         </div>
         <Link
@@ -29,7 +29,7 @@ export default function AdminIndex({ loaderData }: Route.ComponentProps) {
 
       {templates.length === 0 ? (
         <p className="rounded-lg border border-dashed border-zinc-800 bg-zinc-900/50 px-4 py-8 text-center text-sm text-zinc-500">
-          No templates yet. Create one to expose it at{" "}
+          No templates yet. After you add one, it will be available at{" "}
           <code className="text-zinc-400">/api/templates</code>.
         </p>
       ) : (

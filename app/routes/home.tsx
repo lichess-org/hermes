@@ -3,11 +3,11 @@ import type { Route } from "./+types/home";
 
 export function meta({}: Route.MetaArgs) {
   return [
-    { title: "Hermes — shared email templates" },
+    { title: "Hermes — Lichess email templates" },
     {
       name: "description",
       content:
-        "Public email template catalog with an Authentik-protected admin editor.",
+        "Internal Hermes: email templates for the lichess-gmail extension; editing via Authentik.",
     },
   ];
 }
@@ -37,16 +37,13 @@ export default function Home() {
             Hermes
           </p>
           <h1 className="text-4xl font-semibold tracking-tight text-white sm:text-5xl">
-            Shared email templates
+            Lichess email templates
           </h1>
           <p className="text-lg leading-relaxed text-zinc-400">
-            One catalog for your organization: templates are{" "}
-            <strong className="font-medium text-zinc-200">public to read</strong>{" "}
-            and{" "}
             <strong className="font-medium text-zinc-200">
-              editable only when signed in
+              Add, change, and delete templates
             </strong>{" "}
-            with Authentik.
+            after signing in with Authentik.
           </p>
         </div>
 
@@ -61,13 +58,13 @@ export default function Home() {
             href="/api/templates"
             className="rounded-lg border border-zinc-700 bg-zinc-900/60 px-4 py-2.5 text-sm font-medium text-white hover:border-zinc-500"
           >
-            View JSON API
+            JSON API
           </a>
           <Link
             to="/auth/login?redirect=/admin"
             className="rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-emerald-500"
           >
-            Admin sign-in
+            Sign in to edit
           </Link>
         </div>
 
@@ -82,8 +79,8 @@ export default function Home() {
             </li>
             <li>
               <span className="text-emerald-500/90">GET</span>{" "}
-              <code className="text-zinc-300">/api/templates/:slug-or-id</code> —
-              single template
+              <code className="text-zinc-300">/api/templates/:slug-or-id</code>{" "}
+              — single template
             </li>
           </ul>
         </section>
