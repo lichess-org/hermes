@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { useFetcher } from "react-router";
 import type { Route } from "./+types/admin._index";
 import type { EmailTemplate } from "~/lib/db.server";
@@ -79,6 +79,56 @@ function closeModal(setActive: (v: ActiveModal) => void) {
   setActive(null);
 }
 
+function syncOrderWithServer(prev: number[], serverIds: number[]): number[] {
+  if (prev.length === 0) return serverIds;
+  const set = new Set(serverIds);
+  const kept = prev.filter((id) => set.has(id));
+  const tail = serverIds.filter((id) => !kept.includes(id));
+  if (
+    tail.length === 0 &&
+    kept.length === prev.length &&
+    kept.length === serverIds.length
+  ) {
+    return prev;
+  }
+  return [...kept, ...tail];
+}
+
+function DragHandle({
+  templateId,
+  disabled,
+}: {
+  templateId: number;
+  disabled?: boolean;
+}) {
+  return (
+    <div
+      draggable={!disabled}
+      aria-label="Drag to reorder"
+      title="Drag to reorder"
+      className={`flex cursor-grab touch-none items-center justify-center rounded p-1 leading-none text-zinc-500 active:cursor-grabbing ${
+        disabled ? "cursor-not-allowed opacity-40" : "hover:bg-zinc-800 hover:text-zinc-300"
+      }`}
+      onClick={(e) => e.stopPropagation()}
+      onDragStart={(e) => {
+        if (disabled) {
+          e.preventDefault();
+          return;
+        }
+        e.stopPropagation();
+        e.dataTransfer.effectAllowed = "move";
+        e.dataTransfer.setData("text/plain", String(templateId));
+      }}
+    >
+      <span className="grid grid-cols-2 gap-0.5" aria-hidden>
+        {Array.from({ length: 6 }, (_, i) => (
+          <span key={i} className="h-1 w-1 rounded-sm bg-current" />
+        ))}
+      </span>
+    </div>
+  );
+}
+
 export default function AdminIndex({ loaderData }: Route.ComponentProps) {
   const { templates } = loaderData;
   const fetcher = useFetcher<typeof action>();
@@ -87,6 +137,30 @@ export default function AdminIndex({ loaderData }: Route.ComponentProps) {
   const titleId = useId();
   const deleteConfirmTitleId = useId();
   const prevFetcherState = useRef(fetcher.state);
+
+  const serverIdKey = [...templates.map((t) => t.id)]
+    .sort((a, b) => a - b)
+    .join(",");
+
+  const [listOrder, setListOrder] = useState<number[]>(() =>
+    templates.map((t) => t.id),
+  );
+
+  useEffect(() => {
+    setListOrder((prev) =>
+      syncOrderWithServer(
+        prev,
+        templates.map((t) => t.id),
+      ),
+    );
+  }, [serverIdKey]);
+
+  const orderedTemplates = useMemo(() => {
+    const byId = new Map(templates.map((t) => [t.id, t]));
+    return listOrder
+      .map((id) => byId.get(id))
+      .filter((t): t is EmailTemplate => t != null);
+  }, [templates, listOrder]);
 
   const isOpen = activeModal !== null;
   const isNew = activeModal === "new";
@@ -160,6 +234,7 @@ export default function AdminIndex({ loaderData }: Route.ComponentProps) {
   }, [isOpen]);
 
   const isSubmitting = fetcher.state === "submitting";
+  const listMutationBusy = fetcher.state !== "idle";
 
   return (
     <div className="space-y-6">
@@ -202,11 +277,18 @@ export default function AdminIndex({ loaderData }: Route.ComponentProps) {
         <div className="overflow-x-auto rounded-lg border border-zinc-800 bg-zinc-900/40">
           <table className="w-full min-w-[28rem] table-fixed border-collapse text-left text-sm">
             <colgroup>
+              <col className="w-10" />
               <col className="w-[28%]" />
               <col />
             </colgroup>
             <thead>
               <tr className="border-b border-zinc-800 bg-zinc-900/90">
+                <th
+                  scope="col"
+                  className="px-2 py-3 text-xs font-semibold uppercase tracking-wide text-zinc-500"
+                >
+                  <span className="sr-only">Reorder</span>
+                </th>
                 <th
                   scope="col"
                   className="px-4 py-3 text-xs font-semibold uppercase tracking-wide text-zinc-500"
@@ -222,7 +304,7 @@ export default function AdminIndex({ loaderData }: Route.ComponentProps) {
               </tr>
             </thead>
             <tbody>
-              {templates.map((t) => (
+              {orderedTemplates.map((t) => (
                 <tr
                   key={t.id}
                   tabIndex={0}
@@ -234,8 +316,40 @@ export default function AdminIndex({ loaderData }: Route.ComponentProps) {
                       setActiveModal(t.id);
                     }
                   }}
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    e.dataTransfer.dropEffect = "move";
+                  }}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    const raw = e.dataTransfer.getData("text/plain");
+                    const draggedId = Number(raw);
+                    if (!Number.isInteger(draggedId) || draggedId === t.id) {
+                      return;
+                    }
+                    setListOrder((prev) => {
+                      const next = [...prev];
+                      const from = next.indexOf(draggedId);
+                      const to = next.indexOf(t.id);
+                      if (from === -1 || to === -1) return prev;
+                      next.splice(from, 1);
+                      next.splice(to, 0, draggedId);
+                      return next;
+                    });
+                  }}
                 >
-                  <td className="align-top px-4 py-3">
+                  <td
+                    className="align-middle px-2 py-3"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <div className="flex items-center justify-center leading-none">
+                      <DragHandle
+                        templateId={t.id}
+                        disabled={listMutationBusy}
+                      />
+                    </div>
+                  </td>
+                  <td className="align-middle px-4 py-3">
                     <div
                       className="truncate font-medium text-white"
                       title={t.name}
