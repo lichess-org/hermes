@@ -17,3 +17,13 @@ export async function requireUser(request: Request): Promise<SessionUser> {
   }
   return user;
 }
+
+/** String stored on rows as `updatedBy` (username, else email, else sub). */
+export async function getRecordUpdatedBy(
+  request: Request,
+): Promise<string | null> {
+  const user = await getUser(request);
+  if (!user) return null;
+  const s = (user.username?.trim() || user.email || user.sub).trim();
+  return s || null;
+}

@@ -48,6 +48,8 @@ React Router 7, React 19, TypeScript, Tailwind CSS, SQLite (via
 
 ## TODO
 
+- fixup landing page
+- "view everything" mode, which doesn't truncate stuff
 - **Portainer / Docker**: Build the image (or wire a registry + stack); set env
   vars (`APP_URL`, `SESSION_SECRET`, Authentik, `DATABASE_PATH`); attach a
   **persistent volume** for the SQLite file directory; publish port **3000** (or
