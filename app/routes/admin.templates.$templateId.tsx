@@ -3,36 +3,32 @@ import type { Route } from "./+types/admin.templates.$templateId";
 import {
   deleteTemplate,
   getTemplateById,
-  insertTemplate,
   updateTemplate,
 } from "~/lib/db.server";
 
-const SLUG_RE = /^[a-z0-9]+(?:-[a-z0-9]+)*$/i;
-
-function parseTemplateId(raw: string | undefined): "new" | number | null {
-  if (raw === "new") return "new";
+function parseTemplateId(raw: string | undefined): number | null {
   if (!raw || !/^\d+$/.test(raw)) return null;
   return Number(raw);
 }
 
 export async function loader({ params }: Route.LoaderArgs) {
-  const mode = parseTemplateId(params.templateId);
-  if (mode === null) {
+  if (params.templateId === "new") {
+    throw redirect("/admin");
+  }
+  const id = parseTemplateId(params.templateId);
+  if (id === null) {
     throw new Response("Not found", { status: 404 });
   }
-  if (mode === "new") {
-    return { mode: "new" as const, template: null };
-  }
-  const template = getTemplateById(mode);
+  const template = getTemplateById(id);
   if (!template) {
     throw new Response("Not found", { status: 404 });
   }
-  return { mode: "edit" as const, template };
+  return { template };
 }
 
 export async function action({ request, params }: Route.ActionArgs) {
-  const mode = parseTemplateId(params.templateId);
-  if (mode === null) {
+  const id = parseTemplateId(params.templateId);
+  if (id === null) {
     throw new Response("Not found", { status: 404 });
   }
 
@@ -40,79 +36,32 @@ export async function action({ request, params }: Route.ActionArgs) {
   const intent = String(form.get("intent") ?? "");
 
   if (intent === "delete") {
-    if (mode === "new") {
-      return { formError: "Cannot delete a template that is not saved." };
-    }
-    deleteTemplate(mode);
+    deleteTemplate(id);
     throw redirect("/admin");
   }
 
-  const slug = String(form.get("slug") ?? "").trim();
   const name = String(form.get("name") ?? "").trim();
-  const subject = String(form.get("subject") ?? "").trim();
-  const body_html = String(form.get("body_html") ?? "");
-  const body_text = String(form.get("body_text") ?? "");
+  const body = String(form.get("body") ?? "");
+  const appendSignature = form.get("appendSignature") === "on";
 
-  if (!slug || !name) {
-    return { formError: "Slug and name are required." };
-  }
-  if (!SLUG_RE.test(slug)) {
-    return {
-      formError:
-        "Slug must use letters, numbers, and single hyphens between words (e.g. welcome-email).",
-    };
+  if (!name) {
+    return { formError: "Name is required." };
   }
 
-  try {
-    if (mode === "new") {
-      const created = insertTemplate({
-        slug,
-        name,
-        subject,
-        body_html,
-        body_text,
-      });
-      throw redirect(`/admin/templates/${created.id}`);
-    }
-
-    const updated = updateTemplate(mode, {
-      slug,
-      name,
-      subject,
-      body_html,
-      body_text,
-    });
-    if (!updated) {
-      return { formError: "Template not found." };
-    }
-    return { ok: true as const };
-  } catch (e: unknown) {
-    if (e instanceof Response) throw e;
-    const err = e as { code?: string };
-    if (err.code === "SQLITE_CONSTRAINT_UNIQUE") {
-      return { formError: "Another template already uses this slug." };
-    }
-    throw e;
+  const updated = updateTemplate(id, { name, body, appendSignature });
+  if (!updated) {
+    return { formError: "Template not found." };
   }
+  return { ok: true as const };
 }
 
 export default function AdminTemplateEditor({
   loaderData,
   actionData,
 }: Route.ComponentProps) {
-  const { mode, template } = loaderData;
-  const formError = actionData && "formError" in actionData ? actionData.formError : undefined;
-
-  const defaults =
-    mode === "edit" && template
-      ? template
-      : {
-          slug: "",
-          name: "",
-          subject: "",
-          body_html: "",
-          body_text: "",
-        };
+  const { template } = loaderData;
+  const formError =
+    actionData && "formError" in actionData ? actionData.formError : undefined;
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
@@ -122,9 +71,7 @@ export default function AdminTemplateEditor({
         </Link>
       </div>
 
-      <h1 className="text-2xl font-semibold text-white">
-        {mode === "new" ? "New template" : "Edit template"}
-      </h1>
+      <h1 className="text-2xl font-semibold text-white">Edit template</h1>
 
       {formError ? (
         <p className="rounded-md border border-red-900/60 bg-red-950/40 px-3 py-2 text-sm text-red-200">
@@ -139,66 +86,46 @@ export default function AdminTemplateEditor({
       ) : null}
 
       <Form method="post" className="space-y-5">
-        <div className="grid gap-4 sm:grid-cols-2">
-          <label className="block space-y-1.5">
-            <span className="text-xs font-medium uppercase tracking-wide text-zinc-500">
-              Slug
-            </span>
-            <input
-              name="slug"
-              required
-              defaultValue={defaults.slug}
-              placeholder="welcome-email"
-              className="w-full rounded-md border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-white placeholder:text-zinc-600 focus:border-emerald-600 focus:outline-none focus:ring-1 focus:ring-emerald-600"
-            />
-          </label>
-          <label className="block space-y-1.5">
-            <span className="text-xs font-medium uppercase tracking-wide text-zinc-500">
-              Display name
-            </span>
-            <input
-              name="name"
-              required
-              defaultValue={defaults.name}
-              placeholder="Welcome email"
-              className="w-full rounded-md border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-white placeholder:text-zinc-600 focus:border-emerald-600 focus:outline-none focus:ring-1 focus:ring-emerald-600"
-            />
-          </label>
-        </div>
-
         <label className="block space-y-1.5">
           <span className="text-xs font-medium uppercase tracking-wide text-zinc-500">
-            Subject
+            Template name
           </span>
           <input
-            name="subject"
-            defaultValue={defaults.subject}
+            name="name"
+            required
+            defaultValue={template.name}
             className="w-full rounded-md border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-white placeholder:text-zinc-600 focus:border-emerald-600 focus:outline-none focus:ring-1 focus:ring-emerald-600"
           />
         </label>
 
         <label className="block space-y-1.5">
           <span className="text-xs font-medium uppercase tracking-wide text-zinc-500">
-            HTML body
+            Email body
           </span>
           <textarea
-            name="body_html"
-            rows={12}
-            defaultValue={defaults.body_html}
+            name="body"
+            rows={16}
+            defaultValue={template.body}
             className="w-full rounded-md border border-zinc-700 bg-zinc-900 px-3 py-2 font-mono text-sm text-white placeholder:text-zinc-600 focus:border-emerald-600 focus:outline-none focus:ring-1 focus:ring-emerald-600"
           />
         </label>
 
-        <label className="block space-y-1.5">
-          <span className="text-xs font-medium uppercase tracking-wide text-zinc-500">
-            Plain text body
-          </span>
-          <textarea
-            name="body_text"
-            rows={8}
-            defaultValue={defaults.body_text}
-            className="w-full rounded-md border border-zinc-700 bg-zinc-900 px-3 py-2 font-mono text-sm text-white placeholder:text-zinc-600 focus:border-emerald-600 focus:outline-none focus:ring-1 focus:ring-emerald-600"
+        <label className="flex cursor-pointer items-start gap-3 rounded-md border border-zinc-800 bg-zinc-900/40 px-3 py-3">
+          <input
+            type="checkbox"
+            name="appendSignature"
+            defaultChecked={template.appendSignature}
+            className="mt-1 h-4 w-4 rounded border-zinc-600 bg-zinc-900 text-emerald-600 focus:ring-emerald-600"
           />
+          <span>
+            <span className="block text-sm font-medium text-zinc-200">
+              Append signature
+            </span>
+            <span className="mt-0.5 block text-xs text-zinc-500">
+              When enabled, the consumer (e.g. extension) should add the usual
+              signature after this body.
+            </span>
+          </span>
         </label>
 
         <div className="flex flex-wrap items-center gap-3 pt-2">
@@ -210,22 +137,20 @@ export default function AdminTemplateEditor({
           >
             Save
           </button>
-          {mode === "edit" ? (
-            <button
-              type="submit"
-              name="intent"
-              value="delete"
-              className="rounded-lg border border-red-900/60 px-4 py-2 text-sm text-red-300 hover:bg-red-950/50"
-              formNoValidate
-              onClick={(e) => {
-                if (!confirm("Delete this template? This cannot be undone.")) {
-                  e.preventDefault();
-                }
-              }}
-            >
-              Delete
-            </button>
-          ) : null}
+          <button
+            type="submit"
+            name="intent"
+            value="delete"
+            className="rounded-lg border border-red-900/60 px-4 py-2 text-sm text-red-300 hover:bg-red-950/50"
+            formNoValidate
+            onClick={(e) => {
+              if (!confirm("Delete this template? This cannot be undone.")) {
+                e.preventDefault();
+              }
+            }}
+          >
+            Delete
+          </button>
         </div>
       </Form>
     </div>

@@ -110,5 +110,6 @@ export async function exchangeCodeForUser(code: string) {
     sub: profile.sub,
     email: profile.email ?? profile.preferred_username ?? profile.sub,
     name: profile.name,
+    username: profile.preferred_username?.trim() || undefined,
   };
 }

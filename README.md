@@ -48,8 +48,7 @@ React Router 7, React 19, TypeScript, Tailwind CSS, SQLite (via
 
 ## TODO
 
-- **Copy & UI**: Tighten landing and admin wording for the real audience; add
-  empty states, loading states, and clearer error messages where needed.
+- **Copy & UI**
 - **Authentik**: Create or finalize the OAuth2/OpenID provider application; set
   redirect URI to `{APP_URL}/auth/callback` (must match `APP_URL` exactly);
   confirm scopes (`openid`, `email`, `profile`) and that maintainers who should

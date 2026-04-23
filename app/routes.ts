@@ -3,7 +3,7 @@ import { type RouteConfig, index, route } from "@react-router/dev/routes";
 export default [
   index("routes/home.tsx"),
   route("api/templates", "routes/api.templates.tsx"),
-  route("api/templates/:key", "routes/api.templates.$key.tsx"),
+  route("api/templates/:id", "routes/api.templates.$id.tsx"),
   route("auth/login", "routes/auth.login.tsx"),
   route("auth/callback", "routes/auth.callback.tsx"),
   route("auth/logout", "routes/auth.logout.tsx"),

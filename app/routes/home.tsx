@@ -6,8 +6,7 @@ export function meta({}: Route.MetaArgs) {
     { title: "Hermes — Lichess email templates" },
     {
       name: "description",
-      content:
-        "Internal Hermes: email templates for the lichess-gmail extension; editing via Authentik.",
+      content: "Hermes: email templates for the lichess-gmail extension",
     },
   ];
 }
@@ -30,7 +29,7 @@ export default function Home() {
 
   return (
     <main className="relative min-h-screen overflow-hidden bg-zinc-950 text-zinc-100">
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-emerald-950/40 via-zinc-950 to-zinc-950" />
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top,var(--tw-gradient-stops))] from-emerald-950/40 via-zinc-950 to-zinc-950" />
       <div className="relative mx-auto flex max-w-2xl flex-col gap-10 px-6 py-20 sm:py-28">
         <div className="space-y-4">
           <p className="text-xs font-semibold uppercase tracking-[0.2em] text-emerald-500/90">
@@ -58,7 +57,7 @@ export default function Home() {
             href="/api/templates"
             className="rounded-lg border border-zinc-700 bg-zinc-900/60 px-4 py-2.5 text-sm font-medium text-white hover:border-zinc-500"
           >
-            JSON API
+            View email templates
           </a>
           <Link
             to="/auth/login?redirect=/admin"
@@ -79,8 +78,8 @@ export default function Home() {
             </li>
             <li>
               <span className="text-emerald-500/90">GET</span>{" "}
-              <code className="text-zinc-300">/api/templates/:slug-or-id</code>{" "}
-              — single template
+              <code className="text-zinc-300">/api/templates/:id</code> — single
+              template (numeric id)
             </li>
           </ul>
         </section>
