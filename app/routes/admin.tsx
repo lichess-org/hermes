@@ -23,13 +23,16 @@ export default function AdminLayout({ loaderData }: Route.ComponentProps) {
         <div className="mx-auto flex max-w-5xl items-center justify-between gap-4 px-4 py-3">
           <Link
             to="/admin"
-            className="flex items-center gap-0 outline-none focus-visible:rounded-xl focus-visible:ring-2 focus-visible:ring-emerald-500/70 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-900"
+            className="flex items-center gap-2.5 outline-none focus-visible:rounded-lg focus-visible:ring-2 focus-visible:ring-emerald-500/70 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-900"
           >
             <img
               src="/hermes.png"
-              alt="Hermes"
-              className="h-9 w-auto max-h-9 rounded-xl object-contain object-left"
+              alt=""
+              className="h-9 w-auto max-h-9 shrink-0 rounded-xl object-contain object-left"
             />
+            <span className="font-semibold tracking-tight text-white">
+              Hermes
+            </span>
           </Link>
           <div className="flex items-center gap-3 text-sm">
             <span className="hidden text-zinc-500 sm:inline">{displayName}</span>

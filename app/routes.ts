@@ -9,6 +9,6 @@ export default [
   route("auth/logout", "routes/auth.logout.tsx"),
   route("admin", "routes/admin.tsx", [
     index("routes/admin._index.tsx"),
-    route("templates/:templateId", "routes/admin.templates.$templateId.tsx"),
+    route("templates/:templateId", "routes/admin.redirect-templates.tsx"),
   ]),
 ] satisfies RouteConfig;

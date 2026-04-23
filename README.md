@@ -48,12 +48,6 @@ React Router 7, React 19, TypeScript, Tailwind CSS, SQLite (via
 
 ## TODO
 
-- **Copy & UI**
-- **Authentik**: Create or finalize the OAuth2/OpenID provider application; set
-  redirect URI to `{APP_URL}/auth/callback` (must match `APP_URL` exactly);
-  confirm scopes (`openid`, `email`, `profile`) and that maintainers who should
-  edit are allowed to sign in (groups / access policies if you want more than
-  “any Authentik user”).
 - **Portainer / Docker**: Build the image (or wire a registry + stack); set env
   vars (`APP_URL`, `SESSION_SECRET`, Authentik, `DATABASE_PATH`); attach a
   **persistent volume** for the SQLite file directory; publish port **3000** (or

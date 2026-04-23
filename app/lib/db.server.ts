@@ -59,7 +59,7 @@ function migrate(database: Database.Database) {
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       name TEXT NOT NULL,
       body TEXT NOT NULL DEFAULT '',
-      append_signature INTEGER NOT NULL DEFAULT 0,
+      append_signature INTEGER NOT NULL DEFAULT 1,
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
       updated_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
@@ -79,7 +79,7 @@ function migrate(database: Database.Database) {
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       name TEXT NOT NULL,
       body TEXT NOT NULL DEFAULT '',
-      append_signature INTEGER NOT NULL DEFAULT 0,
+      append_signature INTEGER NOT NULL DEFAULT 1,
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL
     );
@@ -105,7 +105,7 @@ function migrate(database: Database.Database) {
   columns = getColumnNames(database, "email_templates");
   if (!columns.includes("append_signature")) {
     database.exec(
-      `ALTER TABLE email_templates ADD COLUMN append_signature INTEGER NOT NULL DEFAULT 0`,
+      `ALTER TABLE email_templates ADD COLUMN append_signature INTEGER NOT NULL DEFAULT 1`,
     );
   }
 }
