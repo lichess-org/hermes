@@ -2,6 +2,10 @@ import { Link, Outlet, redirect } from "react-router";
 import type { Route } from "./+types/admin";
 import { getUser } from "~/lib/auth.server";
 
+export function meta({}: Route.MetaArgs) {
+  return [{ title: "Hermes Email Templates" }];
+}
+
 export async function loader({ request }: Route.LoaderArgs) {
   const user = await getUser(request);
   if (!user) {

@@ -1,4 +1,4 @@
-import { useEffect, useId, useMemo, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { useFetcher } from "react-router";
 import type { Route } from "./+types/admin._index";
 import type { EmailTemplate } from "~/lib/db.server";
@@ -7,6 +7,7 @@ import {
   deleteTemplate,
   insertTemplate,
   listTemplates,
+  reorderTemplates,
   updateTemplate,
 } from "~/lib/db.server";
 
@@ -60,6 +61,18 @@ export async function action({ request }: Route.ActionArgs) {
     return { ok: true as const };
   }
 
+  if (intent === "reorder") {
+    const raw = String(form.get("order") ?? "");
+    const ids = raw
+      .split(",")
+      .map((s) => Number(s.trim()))
+      .filter((n) => Number.isInteger(n) && n > 0);
+    if (!reorderTemplates(ids)) {
+      return { formError: "Invalid template order." as const };
+    }
+    return { reordered: true as const };
+  }
+
   return null;
 }
 
@@ -77,21 +90,6 @@ function previewBody(body: string, maxChars = 240): string {
 
 function closeModal(setActive: (v: ActiveModal) => void) {
   setActive(null);
-}
-
-function syncOrderWithServer(prev: number[], serverIds: number[]): number[] {
-  if (prev.length === 0) return serverIds;
-  const set = new Set(serverIds);
-  const kept = prev.filter((id) => set.has(id));
-  const tail = serverIds.filter((id) => !kept.includes(id));
-  if (
-    tail.length === 0 &&
-    kept.length === prev.length &&
-    kept.length === serverIds.length
-  ) {
-    return prev;
-  }
-  return [...kept, ...tail];
 }
 
 function DragHandle({
@@ -137,30 +135,6 @@ export default function AdminIndex({ loaderData }: Route.ComponentProps) {
   const titleId = useId();
   const deleteConfirmTitleId = useId();
   const prevFetcherState = useRef(fetcher.state);
-
-  const serverIdKey = [...templates.map((t) => t.id)]
-    .sort((a, b) => a - b)
-    .join(",");
-
-  const [listOrder, setListOrder] = useState<number[]>(() =>
-    templates.map((t) => t.id),
-  );
-
-  useEffect(() => {
-    setListOrder((prev) =>
-      syncOrderWithServer(
-        prev,
-        templates.map((t) => t.id),
-      ),
-    );
-  }, [serverIdKey]);
-
-  const orderedTemplates = useMemo(() => {
-    const byId = new Map(templates.map((t) => [t.id, t]));
-    return listOrder
-      .map((id) => byId.get(id))
-      .filter((t): t is EmailTemplate => t != null);
-  }, [templates, listOrder]);
 
   const isOpen = activeModal !== null;
   const isNew = activeModal === "new";
@@ -304,7 +278,7 @@ export default function AdminIndex({ loaderData }: Route.ComponentProps) {
               </tr>
             </thead>
             <tbody>
-              {orderedTemplates.map((t) => (
+              {templates.map((t) => (
                 <tr
                   key={t.id}
                   tabIndex={0}
@@ -327,15 +301,20 @@ export default function AdminIndex({ loaderData }: Route.ComponentProps) {
                     if (!Number.isInteger(draggedId) || draggedId === t.id) {
                       return;
                     }
-                    setListOrder((prev) => {
-                      const next = [...prev];
-                      const from = next.indexOf(draggedId);
-                      const to = next.indexOf(t.id);
-                      if (from === -1 || to === -1) return prev;
-                      next.splice(from, 1);
-                      next.splice(to, 0, draggedId);
-                      return next;
-                    });
+                    const currentIds = templates.map((x) => x.id);
+                    const next = [...currentIds];
+                    const from = next.indexOf(draggedId);
+                    const to = next.indexOf(t.id);
+                    if (from === -1 || to === -1) return;
+                    next.splice(from, 1);
+                    next.splice(to, 0, draggedId);
+                    fetcher.submit(
+                      {
+                        intent: "reorder",
+                        order: next.join(","),
+                      },
+                      { method: "post" },
+                    );
                   }}
                 >
                   <td

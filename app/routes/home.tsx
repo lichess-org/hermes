@@ -3,7 +3,7 @@ import type { Route } from "./+types/home";
 
 export function meta({}: Route.MetaArgs) {
   return [
-    { title: "Hermes — Lichess email templates" },
+    { title: "Hermes Email Templates" },
     {
       name: "description",
       content: "Hermes: email templates for the lichess-gmail extension",

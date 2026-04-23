@@ -44,6 +44,18 @@ function getColumnNames(database: Database.Database, table: string): string[] {
   return rows.map((r) => r.name);
 }
 
+function backfillSortOrder(database: Database.Database) {
+  const rows = database
+    .prepare(`SELECT id FROM email_templates ORDER BY id ASC`)
+    .all() as { id: number }[];
+  const upd = database.prepare(
+    `UPDATE email_templates SET sort_order = ? WHERE id = ?`,
+  );
+  rows.forEach((row, index) => {
+    upd.run(index, row.id);
+  });
+}
+
 function migrate(database: Database.Database) {
   const hasTable = Boolean(
     database
@@ -60,6 +72,7 @@ function migrate(database: Database.Database) {
       name TEXT NOT NULL,
       body TEXT NOT NULL DEFAULT '',
       append_signature INTEGER NOT NULL DEFAULT 1,
+      sort_order INTEGER NOT NULL DEFAULT 0,
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
       updated_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
@@ -80,10 +93,11 @@ function migrate(database: Database.Database) {
       name TEXT NOT NULL,
       body TEXT NOT NULL DEFAULT '',
       append_signature INTEGER NOT NULL DEFAULT 1,
+      sort_order INTEGER NOT NULL DEFAULT 0,
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL
     );
-    INSERT INTO email_templates__new (id, name, body, created_at, updated_at)
+    INSERT INTO email_templates__new (id, name, body, sort_order, created_at, updated_at)
     SELECT
       id,
       name,
@@ -94,6 +108,7 @@ function migrate(database: Database.Database) {
           ELSE char(10) || body_text
         END
       ),
+      id,
       created_at,
       updated_at
     FROM email_templates;
@@ -107,6 +122,14 @@ function migrate(database: Database.Database) {
     database.exec(
       `ALTER TABLE email_templates ADD COLUMN append_signature INTEGER NOT NULL DEFAULT 1`,
     );
+  }
+
+  columns = getColumnNames(database, "email_templates");
+  if (!columns.includes("sort_order")) {
+    database.exec(
+      `ALTER TABLE email_templates ADD COLUMN sort_order INTEGER NOT NULL DEFAULT 0`,
+    );
+    backfillSortOrder(database);
   }
 }
 
@@ -126,7 +149,7 @@ export function listTemplates(): EmailTemplate[] {
     .prepare(
       `SELECT id, name, body, append_signature, created_at, updated_at
        FROM email_templates
-       ORDER BY name COLLATE NOCASE ASC`,
+       ORDER BY sort_order ASC, id ASC`,
     )
     .all() as TemplateRow[];
   return rows.map(mapRow);
@@ -150,15 +173,21 @@ export type NewTemplateInput = {
 
 export function insertTemplate(input: NewTemplateInput): EmailTemplate {
   const database = getDb();
+  const maxRow = database
+    .prepare(`SELECT COALESCE(MAX(sort_order), -1) AS m FROM email_templates`)
+    .get() as { m: number };
+  const sortOrder = maxRow.m + 1;
+
   const result = database
     .prepare(
-      `INSERT INTO email_templates (name, body, append_signature)
-       VALUES (@name, @body, @append_signature)`,
+      `INSERT INTO email_templates (name, body, append_signature, sort_order)
+       VALUES (@name, @body, @append_signature, @sort_order)`,
     )
     .run({
       name: input.name,
       body: input.body,
       append_signature: input.appendSignature ? 1 : 0,
+      sort_order: sortOrder,
     });
   const created = getTemplateById(Number(result.lastInsertRowid));
   if (!created) {
@@ -200,6 +229,36 @@ export function updateTemplate(
     .run({ ...next, id });
 
   return getTemplateById(id);
+}
+
+export function reorderTemplates(orderedIds: number[]): boolean {
+  const database = getDb();
+  const rows = database
+    .prepare(`SELECT id FROM email_templates`)
+    .all() as { id: number }[];
+  const existing = new Set(rows.map((r) => r.id));
+  if (orderedIds.length !== existing.size) {
+    return false;
+  }
+  if (new Set(orderedIds).size !== orderedIds.length) {
+    return false;
+  }
+  for (const id of orderedIds) {
+    if (!existing.has(id)) {
+      return false;
+    }
+  }
+
+  const stmt = database.prepare(
+    `UPDATE email_templates SET sort_order = ? WHERE id = ?`,
+  );
+  const tx = database.transaction(() => {
+    orderedIds.forEach((id, index) => {
+      stmt.run(index, id);
+    });
+  });
+  tx();
+  return true;
 }
 
 export function deleteTemplate(id: number): boolean {
