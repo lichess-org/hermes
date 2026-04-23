@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState } from "react";
+import { Fragment, useEffect, useId, useRef, useState } from "react";
 import { useFetcher, useRevalidator } from "react-router";
 import type { Route } from "./+types/admin._index";
 import type { EmailTemplate } from "~/lib/db.server";
@@ -94,12 +94,41 @@ function closeModal(setActive: (v: ActiveModal) => void) {
   setActive(null);
 }
 
+/** `insertIndex` is the gap index in the full list (0 … ids.length). */
+function buildReorderedIds(
+  ids: number[],
+  draggedId: number,
+  insertIndex: number,
+): number[] {
+  const from = ids.indexOf(draggedId);
+  if (from === -1) return ids;
+  const next = ids.filter((id) => id !== draggedId);
+  let at = insertIndex;
+  if (from < insertIndex) at = insertIndex - 1;
+  next.splice(at, 0, draggedId);
+  return next;
+}
+
+function DropIndicatorRow() {
+  return (
+    <tr className="pointer-events-none" aria-hidden>
+      <td colSpan={3} className="h-0 border-0 p-0">
+        <div className="h-[3px] rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.6)]" />
+      </td>
+    </tr>
+  );
+}
+
 function DragHandle({
   templateId,
   disabled,
+  onDragStart,
+  onDragEnd,
 }: {
   templateId: number;
   disabled?: boolean;
+  onDragStart?: () => void;
+  onDragEnd?: () => void;
 }) {
   return (
     <div
@@ -120,6 +149,10 @@ function DragHandle({
         e.stopPropagation();
         e.dataTransfer.effectAllowed = "move";
         e.dataTransfer.setData("text/plain", String(templateId));
+        onDragStart?.();
+      }}
+      onDragEnd={() => {
+        onDragEnd?.();
       }}
     >
       <span className="grid grid-cols-2 gap-0.5" aria-hidden>
@@ -139,6 +172,10 @@ export default function AdminIndex({ loaderData }: Route.ComponentProps) {
   const [deleteConfirmId, setDeleteConfirmId] = useState<number | null>(null);
   const [lastRefreshedAt, setLastRefreshedAt] = useState<number | null>(null);
   const [now, setNow] = useState(() => Date.now());
+  const [draggingId, setDraggingId] = useState<number | null>(null);
+  const [dropLineIndex, setDropLineIndex] = useState<number | null>(null);
+  const dropLineIndexRef = useRef<number | null>(null);
+  const dragSessionRef = useRef(false);
   const titleId = useId();
   const deleteConfirmTitleId = useId();
   const prevFetcherState = useRef(fetcher.state);
@@ -247,7 +284,7 @@ export default function AdminIndex({ loaderData }: Route.ComponentProps) {
           <h1 className="text-2xl font-semibold text-white">
             Lichess email templates
           </h1>
-          <p className="mt-2 max-w-2xl text-sm leading-relaxed text-zinc-400">
+          <p className="mt-2 text-sm leading-relaxed text-zinc-400">
             Here are all of our email templates which are insertable using the{" "}
             <a
               href="https://github.com/ornicar/lichess-gmail"
@@ -343,74 +380,108 @@ export default function AdminIndex({ loaderData }: Route.ComponentProps) {
               </tr>
             </thead>
             <tbody>
-              {templates.map((t) => (
-                <tr
-                  key={t.id}
-                  tabIndex={0}
-                  className="cursor-pointer border-b border-zinc-800/90 last:border-b-0 hover:bg-zinc-800/55 focus:bg-zinc-800/55 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-emerald-600/45"
-                  onClick={() => setActiveModal(t.id)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" || e.key === " ") {
+              {templates.map((t, i) => (
+                <Fragment key={t.id}>
+                  {draggingId !== null && dropLineIndex === i ? (
+                    <DropIndicatorRow />
+                  ) : null}
+                  <tr
+                    tabIndex={0}
+                    className={`cursor-pointer border-b border-zinc-800/90 last:border-b-0 hover:bg-zinc-800/55 focus:bg-zinc-800/55 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-emerald-600/45 ${
+                      draggingId === t.id ? "opacity-50" : ""
+                    }`}
+                    onClick={() => setActiveModal(t.id)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        setActiveModal(t.id);
+                      }
+                    }}
+                    onDragOver={(e) => {
+                      if (!dragSessionRef.current) return;
                       e.preventDefault();
-                      setActiveModal(t.id);
-                    }
-                  }}
-                  onDragOver={(e) => {
-                    e.preventDefault();
-                    e.dataTransfer.dropEffect = "move";
-                  }}
-                  onDrop={(e) => {
-                    e.preventDefault();
-                    const raw = e.dataTransfer.getData("text/plain");
-                    const draggedId = Number(raw);
-                    if (!Number.isInteger(draggedId) || draggedId === t.id) {
-                      return;
-                    }
-                    const currentIds = templates.map((x) => x.id);
-                    const next = [...currentIds];
-                    const from = next.indexOf(draggedId);
-                    const to = next.indexOf(t.id);
-                    if (from === -1 || to === -1) return;
-                    next.splice(from, 1);
-                    next.splice(to, 0, draggedId);
-                    fetcher.submit(
-                      {
-                        intent: "reorder",
-                        order: next.join(","),
-                      },
-                      { method: "post" },
-                    );
-                  }}
-                >
-                  <td
-                    className="align-middle px-2 py-3"
-                    onClick={(e) => e.stopPropagation()}
+                      e.dataTransfer.dropEffect = "move";
+                      const rect = e.currentTarget.getBoundingClientRect();
+                      const midY = rect.top + rect.height / 2;
+                      const insertIndex = e.clientY <= midY ? i : i + 1;
+                      dropLineIndexRef.current = insertIndex;
+                      setDropLineIndex(insertIndex);
+                    }}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      const raw = e.dataTransfer.getData("text/plain");
+                      const dragged = Number(raw);
+                      if (!Number.isInteger(dragged)) {
+                        return;
+                      }
+                      const insertIndex = dropLineIndexRef.current;
+                      if (insertIndex === null) {
+                        return;
+                      }
+                      const ids = templates.map((x) => x.id);
+                      const next = buildReorderedIds(ids, dragged, insertIndex);
+                      dragSessionRef.current = false;
+                      setDraggingId(null);
+                      setDropLineIndex(null);
+                      dropLineIndexRef.current = null;
+                      if (next.join(",") === ids.join(",")) {
+                        return;
+                      }
+                      fetcher.submit(
+                        {
+                          intent: "reorder",
+                          order: next.join(","),
+                        },
+                        { method: "post" },
+                      );
+                    }}
                   >
-                    <div className="flex items-center justify-center leading-none">
-                      <DragHandle
-                        templateId={t.id}
-                        disabled={listMutationBusy}
-                      />
-                    </div>
-                  </td>
-                  <td className="align-middle px-4 py-3">
-                    <div
-                      className="truncate font-medium text-white"
-                      title={t.name}
+                    <td
+                      className="align-middle px-2 py-3"
+                      onClick={(e) => e.stopPropagation()}
                     >
-                      {t.name}
-                    </div>
-                  </td>
-                  <td className="align-top px-4 py-3 text-zinc-500">
-                    <div
-                      className="line-clamp-2 break-words"
-                      title={previewBody(t.body)}
-                    >
-                      {previewBody(t.body)}
-                    </div>
-                  </td>
-                </tr>
+                      <div className="flex items-center justify-center leading-none">
+                        <DragHandle
+                          templateId={t.id}
+                          disabled={listMutationBusy}
+                          onDragStart={() => {
+                            dragSessionRef.current = true;
+                            setDraggingId(t.id);
+                            setDropLineIndex(null);
+                            dropLineIndexRef.current = null;
+                          }}
+                          onDragEnd={() => {
+                            dragSessionRef.current = false;
+                            setDraggingId(null);
+                            setDropLineIndex(null);
+                            dropLineIndexRef.current = null;
+                          }}
+                        />
+                      </div>
+                    </td>
+                    <td className="align-middle px-4 py-3">
+                      <div
+                        className="truncate font-medium text-white"
+                        title={t.name}
+                      >
+                        {t.name}
+                      </div>
+                    </td>
+                    <td className="align-top px-4 py-3 text-zinc-500">
+                      <div
+                        className="line-clamp-2 break-words"
+                        title={previewBody(t.body)}
+                      >
+                        {previewBody(t.body)}
+                      </div>
+                    </td>
+                  </tr>
+                </Fragment>
               ))}
+              {draggingId !== null && dropLineIndex === templates.length ? (
+                <DropIndicatorRow key="line-end" />
+              ) : null}
             </tbody>
           </table>
         </div>
