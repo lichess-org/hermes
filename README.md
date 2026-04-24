@@ -48,8 +48,4 @@ React Router 7, React 19, TypeScript, Tailwind CSS, SQLite (via
 
 ## TODO
 
-- **Portainer / Docker**: Build the image (or wire a registry + stack); set env
-  vars (`APP_URL`, `SESSION_SECRET`, Authentik, `DATABASE_PATH`); attach a
-  **persistent volume** for the SQLite file directory; publish port **3000** (or
-  set `PORT` if the stack maps a different host port); health check / restart
-  policy as desired.
+- modify docker workflow if not using DEPLOY_WEBHOOK_URL
