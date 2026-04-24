@@ -1,0 +1,23 @@
+# Single-service stack: Hermes + SQLite on a named volume.
+# Set variables in a local `.env` (from `.env.example`) or in Portainer.
+# `DATABASE_PATH` is fixed in-container; the volume mounts at /data.
+#
+# Image default matches CI: ghcr.io/lichess-org/hermes. Override with HERMES_IMAGE in `.env`.
+services:
+  hermes:
+    image: ${HERMES_IMAGE:-ghcr.io/lichess-org/hermes:main}
+    restart: unless-stopped
+    ports:
+      - "${PORT:-3000}:3000"
+    environment:
+      APP_URL: ${APP_URL}
+      SESSION_SECRET: ${SESSION_SECRET}
+      DATABASE_PATH: /data/hermes.db
+      AUTHENTIK_ISSUER: ${AUTHENTIK_ISSUER}
+      AUTHENTIK_CLIENT_ID: ${AUTHENTIK_CLIENT_ID}
+      AUTHENTIK_CLIENT_SECRET: ${AUTHENTIK_CLIENT_SECRET}
+    volumes:
+      - hermes-data:/data
+
+volumes:
+  hermes-data:
