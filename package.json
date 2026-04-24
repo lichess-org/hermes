@@ -1,6 +1,7 @@
 {
   "name": "hermes",
   "private": true,
+  "license": "AGPL-3.0",
   "type": "module",
   "scripts": {
     "build": "react-router build",
