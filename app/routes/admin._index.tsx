@@ -527,8 +527,8 @@ export default function AdminIndex({ loaderData }: Route.ComponentProps) {
                   redistribute — the drag column can grow. Remaining columns
                   share the rest of the table width evenly. */}
               <col style={{ width: "2.5rem" }} />
-              <col />
-              <col />
+              <col className="w-[30%]" />
+              <col className="w-[40%]" />
               <col />
               <col />
             </colgroup>
