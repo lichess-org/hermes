@@ -16,7 +16,3 @@ export async function loader({ request, params }: Route.LoaderArgs) {
   }
   return jsonResponse({ template });
 }
-
-export default function ApiTemplateById() {
-  return null;
-}
