@@ -45,7 +45,3 @@ database path if you set `DATABASE_PATH` outside the image.
 
 React Router 7, React 19, TypeScript, Tailwind CSS, SQLite (via
 `better-sqlite3`).
-
-## TODO
-
-- modify docker workflow if not using DEPLOY_WEBHOOK_URL
