@@ -26,6 +26,7 @@ import {
 } from "~/lib/time-formatting";
 
 const TEMPLATE_QUERY = "template";
+const CATEGORY_QUERY = "category";
 
 function parseOpenTemplateId(url: string): number | null {
   const raw = new URL(url).searchParams.get(TEMPLATE_QUERY);
@@ -56,6 +57,12 @@ export async function action({ request }: Route.ActionArgs) {
     return { formError: "Not signed in." as const };
   }
 
+  const rawCategory = String(form.get("category") ?? "").trim();
+  const category =
+    rawCategory === "admin" || rawCategory === "broadcast"
+      ? rawCategory
+      : "admin";
+
   if (intent === "delete") {
     const id = Number(form.get("id"));
     if (!Number.isInteger(id) || id < 1) {
@@ -81,6 +88,7 @@ export async function action({ request }: Route.ActionArgs) {
 
     const updated = updateTemplate(id, {
       name,
+      category,
       body,
       notes,
       appendSignature,
@@ -102,7 +110,14 @@ export async function action({ request }: Route.ActionArgs) {
       return { formError: "Name is required." as const };
     }
 
-    insertTemplate({ name, body, notes, appendSignature, updatedBy: by });
+    insertTemplate({
+      name,
+      category,
+      body,
+      notes,
+      appendSignature,
+      updatedBy: by,
+    });
     return { ok: true as const };
   }
 
@@ -117,6 +132,7 @@ export async function action({ request }: Route.ActionArgs) {
     }
     const created = insertTemplate({
       name: `${source.name} (copy)`,
+      category: source.category,
       body: source.body,
       notes: source.notes,
       appendSignature: source.appendSignature,
@@ -143,6 +159,17 @@ export async function action({ request }: Route.ActionArgs) {
 const HOUR_MS = 60 * 60 * 1000;
 
 type ActiveModal = null | "new" | number;
+
+type CategoryFilter = "all" | "admin" | "broadcast";
+
+function parseCategoryFilter(value: string | null): CategoryFilter {
+  if (value === "admin" || value === "broadcast") return value;
+  return "all";
+}
+
+function formatCategory(category: EmailTemplate["category"]): string {
+  return category.slice(0, 1).toUpperCase() + category.slice(1);
+}
 
 function previewBody(body: string, maxChars = 240): string {
   const plain = body
@@ -243,6 +270,14 @@ export default function AdminIndex({ loaderData }: Route.ComponentProps) {
   const [searchParams, setSearchParams] = useSearchParams();
   const fetcher = useFetcher<typeof action>();
   const revalidator = useRevalidator();
+  const categoryFilter = parseCategoryFilter(searchParams.get(CATEGORY_QUERY));
+  const defaultNewCategory: EmailTemplate["category"] =
+    categoryFilter === "broadcast" ? "broadcast" : "admin";
+
+  const visibleTemplates =
+    categoryFilter === "all"
+      ? templates
+      : templates.filter((t) => t.category === categoryFilter);
   const [activeModal, setActiveModal] = useState<ActiveModal>(
     () => openTemplateId ?? null,
   );
@@ -348,6 +383,13 @@ export default function AdminIndex({ loaderData }: Route.ComponentProps) {
     // Intentionally omit `templates` from deps so list revalidations do not
     // collapse the notes field after the user clicks "Add notes".
   }, [isOpen, isNew, activeModal]);
+
+  useEffect(() => {
+    setDraggingId(null);
+    setDropLineIndex(null);
+    dropLineIndexRef.current = null;
+    dragSessionRef.current = false;
+  }, [categoryFilter]);
 
   const formError =
     fetcher.state === "idle" &&
@@ -471,7 +513,7 @@ export default function AdminIndex({ loaderData }: Route.ComponentProps) {
           </p>
         </div>
 
-        <div className="flex items-end justify-between gap-3">
+        <div className="flex flex-wrap items-end justify-between gap-3">
           <button
             type="button"
             onClick={() => revalidator.revalidate()}
@@ -494,13 +536,43 @@ export default function AdminIndex({ loaderData }: Route.ComponentProps) {
             </svg>
             {refreshBusy ? "Refreshing…" : "Refresh"}
           </button>
-          <button
-            type="button"
-            onClick={() => setActiveWithUrl("new")}
-            className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-500"
-          >
-            New template
-          </button>
+          <div className="ml-auto flex flex-wrap items-center gap-3">
+            <label className="flex items-center gap-2 text-sm text-zinc-400">
+              <span className="text-xs font-medium uppercase tracking-wide text-zinc-500">
+                Filter
+              </span>
+              <select
+                value={categoryFilter}
+                onChange={(e) => {
+                  const next = parseCategoryFilter(e.target.value);
+                  setSearchParams(
+                    (prev) => {
+                      const p = new URLSearchParams(prev);
+                      if (next === "all") {
+                        p.delete(CATEGORY_QUERY);
+                      } else {
+                        p.set(CATEGORY_QUERY, next);
+                      }
+                      return p;
+                    },
+                    { replace: true },
+                  );
+                }}
+                className="rounded-md border border-zinc-700 bg-zinc-950 px-2 py-1.5 text-sm text-white focus:border-emerald-600 focus:outline-none focus:ring-1 focus:ring-emerald-600"
+              >
+                <option value="all">All</option>
+                <option value="admin">Admin</option>
+                <option value="broadcast">Broadcast</option>
+              </select>
+            </label>
+            <button
+              type="button"
+              onClick={() => setActiveWithUrl("new")}
+              className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-500"
+            >
+              New template
+            </button>
+          </div>
         </div>
 
         {lastRefreshedAt !== null && now - lastRefreshedAt > HOUR_MS ? (
@@ -514,9 +586,11 @@ export default function AdminIndex({ loaderData }: Route.ComponentProps) {
         ) : null}
       </div>
 
-      {templates.length === 0 ? (
+      {visibleTemplates.length === 0 ? (
         <p className="rounded-lg border border-dashed border-zinc-800 bg-zinc-900/50 px-4 py-8 text-center text-sm text-zinc-500">
-          No templates yet.
+          {categoryFilter === "all"
+            ? "No templates yet."
+            : `No ${formatCategory(categoryFilter)} templates yet.`}
         </p>
       ) : (
         <div className="overflow-x-auto rounded-lg border border-zinc-800 bg-zinc-900/40">
@@ -567,7 +641,7 @@ export default function AdminIndex({ loaderData }: Route.ComponentProps) {
               </tr>
             </thead>
             <tbody>
-              {templates.map((t, i) => (
+              {visibleTemplates.map((t, i) => (
                 <Fragment key={t.id}>
                   {draggingId !== null && dropLineIndex === i ? (
                     <DropIndicatorRow />
@@ -606,13 +680,23 @@ export default function AdminIndex({ loaderData }: Route.ComponentProps) {
                       if (insertIndex === null) {
                         return;
                       }
-                      const ids = templates.map((x) => x.id);
-                      const next = buildReorderedIds(ids, dragged, insertIndex);
+                      const allIds = templates.map((x) => x.id);
+                      const visibleIds = visibleTemplates.map((x) => x.id);
+                      const nextVisible = buildReorderedIds(
+                        visibleIds,
+                        dragged,
+                        insertIndex,
+                      );
+                      const visibleSet = new Set(visibleIds);
+                      let j = 0;
+                      const next = allIds.map((id) =>
+                        visibleSet.has(id) ? nextVisible[j++] : id,
+                      );
                       dragSessionRef.current = false;
                       setDraggingId(null);
                       setDropLineIndex(null);
                       dropLineIndexRef.current = null;
-                      if (next.join(",") === ids.join(",")) {
+                      if (next.join(",") === allIds.join(",")) {
                         return;
                       }
                       fetcher.submit(
@@ -683,7 +767,8 @@ export default function AdminIndex({ loaderData }: Route.ComponentProps) {
                   </tr>
                 </Fragment>
               ))}
-              {draggingId !== null && dropLineIndex === templates.length ? (
+              {draggingId !== null &&
+              dropLineIndex === visibleTemplates.length ? (
                 <DropIndicatorRow key="line-end" />
               ) : null}
             </tbody>
@@ -785,6 +870,23 @@ export default function AdminIndex({ loaderData }: Route.ComponentProps) {
                       }
                       className="w-full rounded-md border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-white focus:border-emerald-600 focus:outline-none focus:ring-1 focus:ring-emerald-600 disabled:opacity-50"
                     />
+                  </label>
+
+                  <label className="block space-y-1.5">
+                    <span className="text-xs font-medium uppercase tracking-wide text-zinc-500">
+                      Category
+                    </span>
+                    <select
+                      name="category"
+                      disabled={isSubmitting}
+                      defaultValue={
+                        !isNew && editing ? editing.category : defaultNewCategory
+                      }
+                      className="w-full rounded-md border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-white focus:border-emerald-600 focus:outline-none focus:ring-1 focus:ring-emerald-600 disabled:opacity-50"
+                    >
+                      <option value="admin">Admin</option>
+                      <option value="broadcast">Broadcast</option>
+                    </select>
                   </label>
 
                   <div className="space-y-1.5">
