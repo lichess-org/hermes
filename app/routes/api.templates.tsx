@@ -6,6 +6,11 @@ export async function loader({ request }: Route.LoaderArgs) {
   if (request.method === "OPTIONS") {
     return optionsResponse();
   }
-  const templates = listTemplates();
+  const rawCategory = new URL(request.url).searchParams.get("category");
+  const category =
+    rawCategory === "admin" || rawCategory === "broadcast"
+      ? rawCategory
+      : undefined;
+  const templates = listTemplates(category);
   return jsonResponse({ templates });
 }

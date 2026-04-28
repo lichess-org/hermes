@@ -182,14 +182,26 @@ export function getDb(): Database.Database {
   return db;
 }
 
-export function listTemplates(): EmailTemplate[] {
-  const rows = getDb()
-    .prepare(
-      `SELECT id, name, category, body, notes, append_signature, created_at, updated_at, updated_by
-       FROM email_templates
-       ORDER BY sort_order ASC, id ASC`,
-    )
-    .all() as TemplateRow[];
+export function listTemplates(
+  category?: EmailTemplate["category"],
+): EmailTemplate[] {
+  const rows =
+    category === "admin" || category === "broadcast"
+      ? ((getDb()
+          .prepare(
+            `SELECT id, name, category, body, notes, append_signature, created_at, updated_at, updated_by
+             FROM email_templates
+             WHERE category = ?
+             ORDER BY sort_order ASC, id ASC`,
+          )
+          .all(category) as TemplateRow[]) ?? [])
+      : ((getDb()
+          .prepare(
+            `SELECT id, name, category, body, notes, append_signature, created_at, updated_at, updated_by
+             FROM email_templates
+             ORDER BY sort_order ASC, id ASC`,
+          )
+          .all() as TemplateRow[]) ?? []);
   return rows.map(mapRow);
 }
 
