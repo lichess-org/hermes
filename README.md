@@ -41,6 +41,17 @@ npm start
 A `Dockerfile` is for containerized deployment; map storage/volumes for the
 database path if you set `DATABASE_PATH` outside the image.
 
+### Database backups
+
+Run this inside the running app container:
+
+```bash
+node -e "const db = require('better-sqlite3')('/data/hermes.db'); db.backup(\`/data/hermes-backup-\${new Date().toISOString().slice(0,10)}.db\`).then(() => console.log('done'));"
+```
+
+The backup file is written next to the live DB on the same volume (e.g.
+`/data/hermes-backup-2026-04-28.db`).
+
 ## Stack
 
 React Router 7, React 19, TypeScript, Tailwind CSS, SQLite (via
