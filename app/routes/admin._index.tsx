@@ -27,6 +27,7 @@ import {
 
 const TEMPLATE_QUERY = "template";
 const CATEGORY_QUERY = "category";
+const EXPAND_QUERY = "expand";
 
 function parseOpenTemplateId(url: string): number | null {
   const raw = new URL(url).searchParams.get(TEMPLATE_QUERY);
@@ -170,6 +171,10 @@ function parseCategoryFilter(value: string | null): CategoryFilter {
   return "admin";
 }
 
+function parseExpandAll(value: string | null): boolean {
+  return value === "1" || value === "true";
+}
+
 function formatCategory(category: EmailTemplate["category"]): string {
   return category.slice(0, 1).toUpperCase() + category.slice(1);
 }
@@ -177,6 +182,12 @@ function formatCategory(category: EmailTemplate["category"]): string {
 function previewBody(body: string, maxChars = 240): string {
   const plain = body
     .replace(/<[^>]*>/g, " ")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">")
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;/gi, "'")
     .replace(/\s+/g, " ")
     .trim();
   if (!plain) return "—";
@@ -274,6 +285,7 @@ export default function AdminIndex({ loaderData }: Route.ComponentProps) {
   const fetcher = useFetcher<typeof action>();
   const revalidator = useRevalidator();
   const categoryFilter = parseCategoryFilter(searchParams.get(CATEGORY_QUERY));
+  const expandAll = parseExpandAll(searchParams.get(EXPAND_QUERY));
   const defaultNewCategory: EmailTemplate["category"] =
     categoryFilter === "broadcast" ? "broadcast" : "admin";
 
@@ -540,7 +552,29 @@ export default function AdminIndex({ loaderData }: Route.ComponentProps) {
             {refreshBusy ? "Refreshing…" : "Refresh"}
           </button>
           <div className="ml-auto flex flex-wrap items-center gap-3">
-            <label className="flex items-center gap-2 text-sm text-zinc-400">
+            <label className="flex items-center gap-2 border-r border-zinc-800 pr-3 text-sm text-zinc-400">
+              <span className="text-xs font-medium uppercase tracking-wide text-zinc-500">
+                Expand all
+              </span>
+              <input
+                type="checkbox"
+                checked={expandAll}
+                onChange={(e) => {
+                  const checked = e.currentTarget.checked;
+                  setSearchParams(
+                    (prev) => {
+                      const p = new URLSearchParams(prev);
+                      if (checked) p.set(EXPAND_QUERY, "1");
+                      else p.delete(EXPAND_QUERY);
+                      return p;
+                    },
+                    { replace: true },
+                  );
+                }}
+                className="h-4 w-4 rounded border-zinc-600 bg-zinc-950 text-emerald-600 focus:ring-emerald-600"
+              />
+            </label>
+            <label className="flex items-center gap-2 pl-1 text-sm text-zinc-400">
               <span className="text-xs font-medium uppercase tracking-wide text-zinc-500">
                 Category
               </span>
@@ -733,26 +767,44 @@ export default function AdminIndex({ loaderData }: Route.ComponentProps) {
                     </td>
                     <td className="align-middle px-4 py-3">
                       <div
-                        className="truncate font-medium text-white"
-                        title={t.name}
+                        className={
+                          expandAll
+                            ? "font-medium text-white"
+                            : "truncate font-medium text-white"
+                        }
+                        title={expandAll ? undefined : t.name}
                       >
                         {t.name}
                       </div>
                     </td>
                     <td className="align-top px-4 py-3 text-zinc-500">
                       <div
-                        className="line-clamp-2 wrap-break-word"
-                        title={previewBody(t.body)}
+                        className={
+                          expandAll
+                            ? "wrap-break-word"
+                            : "line-clamp-2 wrap-break-word"
+                        }
+                        title={
+                          expandAll ? undefined : previewBody(t.body)
+                        }
                       >
-                        {previewBody(t.body)}
+                        {expandAll ? previewBody(t.body, 10_000) : previewBody(t.body)}
                       </div>
                     </td>
                     <td className="align-top px-4 py-3 text-zinc-500">
                       <div
-                        className="line-clamp-2 wrap-break-word"
-                        title={previewBody(t.notes)}
+                        className={
+                          expandAll
+                            ? "wrap-break-word"
+                            : "line-clamp-2 wrap-break-word"
+                        }
+                        title={
+                          expandAll ? undefined : previewBody(t.notes)
+                        }
                       >
-                        {previewBody(t.notes) || "—"}
+                        {(expandAll
+                          ? previewBody(t.notes, 10_000)
+                          : previewBody(t.notes)) || "—"}
                       </div>
                     </td>
                     <td className="whitespace-nowrap px-3 py-3 align-top text-zinc-400">
