@@ -163,8 +163,11 @@ type ActiveModal = null | "new" | number;
 type CategoryFilter = "all" | "admin" | "broadcast";
 
 function parseCategoryFilter(value: string | null): CategoryFilter {
-  if (value === "admin" || value === "broadcast") return value;
-  return "all";
+  if (value === "all" || value === "admin" || value === "broadcast") {
+    return value;
+  }
+  // Default filter for the page.
+  return "admin";
 }
 
 function formatCategory(category: EmailTemplate["category"]): string {
@@ -496,7 +499,7 @@ export default function AdminIndex({ loaderData }: Route.ComponentProps) {
             Lichess email templates
           </h1>
           <p className="mt-2 text-sm leading-relaxed text-zinc-400">
-            Here are all of our email templates which are insertable using the{" "}
+            These email templates are used in the{" "}
             <a
               href="https://github.com/ornicar/lichess-gmail"
               target="_blank"
@@ -505,11 +508,11 @@ export default function AdminIndex({ loaderData }: Route.ComponentProps) {
             >
               lichess-gmail
             </a>{" "}
-            Chrome/Firefox extension.
+            browser extension.
           </p>
           <p className="mt-2 text-sm text-zinc-500">
-            After making updates here, remember to click &quot;Reload&quot; in
-            the extension.
+            You can drag the handle to reorder the templates. After making
+            updates here, remember to click &quot;Reload&quot; in the extension.
           </p>
         </div>
 
@@ -539,7 +542,7 @@ export default function AdminIndex({ loaderData }: Route.ComponentProps) {
           <div className="ml-auto flex flex-wrap items-center gap-3">
             <label className="flex items-center gap-2 text-sm text-zinc-400">
               <span className="text-xs font-medium uppercase tracking-wide text-zinc-500">
-                Filter
+                Category
               </span>
               <select
                 value={categoryFilter}
@@ -548,11 +551,8 @@ export default function AdminIndex({ loaderData }: Route.ComponentProps) {
                   setSearchParams(
                     (prev) => {
                       const p = new URLSearchParams(prev);
-                      if (next === "all") {
-                        p.delete(CATEGORY_QUERY);
-                      } else {
-                        p.set(CATEGORY_QUERY, next);
-                      }
+                      if (next === "admin") p.delete(CATEGORY_QUERY);
+                      else p.set(CATEGORY_QUERY, next);
                       return p;
                     },
                     { replace: true },
@@ -880,7 +880,9 @@ export default function AdminIndex({ loaderData }: Route.ComponentProps) {
                       name="category"
                       disabled={isSubmitting}
                       defaultValue={
-                        !isNew && editing ? editing.category : defaultNewCategory
+                        !isNew && editing
+                          ? editing.category
+                          : defaultNewCategory
                       }
                       className="w-full rounded-md border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-white focus:border-emerald-600 focus:outline-none focus:ring-1 focus:ring-emerald-600 disabled:opacity-50"
                     >
