@@ -5,6 +5,7 @@ import path from "node:path";
 export type EmailTemplate = {
   id: number;
   name: string;
+  category: "admin" | "broadcast";
   body: string;
   notes: string;
   appendSignature: boolean;
@@ -16,6 +17,7 @@ export type EmailTemplate = {
 type TemplateRow = {
   id: number;
   name: string;
+  category: string;
   body: string;
   notes: string;
   append_signature: number;
@@ -25,9 +27,11 @@ type TemplateRow = {
 };
 
 function mapRow(row: TemplateRow): EmailTemplate {
+  const category = row.category === "broadcast" ? "broadcast" : "admin";
   return {
     id: row.id,
     name: row.name,
+    category,
     body: row.body,
     notes: row.notes ?? "",
     appendSignature: row.append_signature === 1,
@@ -76,6 +80,7 @@ function migrate(database: Database.Database) {
     CREATE TABLE email_templates (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       name TEXT NOT NULL,
+      category TEXT NOT NULL DEFAULT 'admin',
       body TEXT NOT NULL DEFAULT '',
       notes TEXT NOT NULL DEFAULT '',
       append_signature INTEGER NOT NULL DEFAULT 1,
@@ -157,6 +162,13 @@ function migrate(database: Database.Database) {
       `ALTER TABLE email_templates ADD COLUMN updated_by TEXT NOT NULL DEFAULT ''`,
     );
   }
+
+  columns = getColumnNames(database, "email_templates");
+  if (!columns.includes("category")) {
+    database.exec(
+      `ALTER TABLE email_templates ADD COLUMN category TEXT NOT NULL DEFAULT 'admin'`,
+    );
+  }
 }
 
 export function getDb(): Database.Database {
@@ -170,21 +182,33 @@ export function getDb(): Database.Database {
   return db;
 }
 
-export function listTemplates(): EmailTemplate[] {
-  const rows = getDb()
-    .prepare(
-      `SELECT id, name, body, notes, append_signature, created_at, updated_at, updated_by
-       FROM email_templates
-       ORDER BY sort_order ASC, id ASC`,
-    )
-    .all() as TemplateRow[];
+export function listTemplates(
+  category?: EmailTemplate["category"],
+): EmailTemplate[] {
+  const rows =
+    category === "admin" || category === "broadcast"
+      ? ((getDb()
+          .prepare(
+            `SELECT id, name, category, body, notes, append_signature, created_at, updated_at, updated_by
+             FROM email_templates
+             WHERE category = ?
+             ORDER BY sort_order ASC, id ASC`,
+          )
+          .all(category) as TemplateRow[]) ?? [])
+      : ((getDb()
+          .prepare(
+            `SELECT id, name, category, body, notes, append_signature, created_at, updated_at, updated_by
+             FROM email_templates
+             ORDER BY sort_order ASC, id ASC`,
+          )
+          .all() as TemplateRow[]) ?? []);
   return rows.map(mapRow);
 }
 
 export function getTemplateById(id: number): EmailTemplate | undefined {
   const row = getDb()
     .prepare(
-      `SELECT id, name, body, notes, append_signature, created_at, updated_at, updated_by
+      `SELECT id, name, category, body, notes, append_signature, created_at, updated_at, updated_by
        FROM email_templates WHERE id = ?`,
     )
     .get(id) as TemplateRow | undefined;
@@ -193,6 +217,7 @@ export function getTemplateById(id: number): EmailTemplate | undefined {
 
 export type NewTemplateInput = {
   name: string;
+  category?: "admin" | "broadcast";
   body: string;
   notes: string;
   appendSignature: boolean;
@@ -208,11 +233,12 @@ export function insertTemplate(input: NewTemplateInput): EmailTemplate {
 
   const result = database
     .prepare(
-      `INSERT INTO email_templates (name, body, notes, append_signature, sort_order, updated_by)
-       VALUES (@name, @body, @notes, @append_signature, @sort_order, @updated_by)`,
+      `INSERT INTO email_templates (name, category, body, notes, append_signature, sort_order, updated_by)
+       VALUES (@name, @category, @body, @notes, @append_signature, @sort_order, @updated_by)`,
     )
     .run({
       name: input.name,
+      category: input.category === "broadcast" ? "broadcast" : "admin",
       body: input.body,
       notes: input.notes,
       append_signature: input.appendSignature ? 1 : 0,
@@ -236,6 +262,12 @@ export function updateTemplate(
 
   const next = {
     name: input.name ?? existing.name,
+    category:
+      input.category !== undefined
+        ? input.category === "broadcast"
+          ? "broadcast"
+          : "admin"
+        : existing.category,
     body: input.body ?? existing.body,
     notes: input.notes ?? existing.notes,
     updated_by:
@@ -256,6 +288,7 @@ export function updateTemplate(
     .prepare(
       `UPDATE email_templates
        SET name = @name,
+           category = @category,
            body = @body,
            notes = @notes,
            append_signature = @append_signature,

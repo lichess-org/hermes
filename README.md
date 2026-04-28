@@ -1,15 +1,10 @@
 # Hermes
 
-Hermes serves **email templates** to the
-[lichess-gmail](https://github.com/ornicar/lichess-gmail) browser extension and
-ships a small web UI to **view and manage** those templates. The email templates
-are publicly readable but requires auth via
+[Hermes](https://hermes.lichess.app) serves **email templates** to the
+[lichess-gmail](https://github.com/ornicar/lichess-gmail) browser extension. It
+also provides a small web UI for viewing and managing those templates. The email
+templates are publicly readable but require auth via
 [Authentik](https://auth.lichess.app/) to edit.
-
-## What it does
-
-- **lichess-gmail** loads template content from Hermes when using Gmail.
-- **Maintainers** sign in with Authentik to add or change templates.
 
 ## Development
 
@@ -38,8 +33,16 @@ npm run build
 npm start
 ```
 
-A `Dockerfile` is for containerized deployment; map storage/volumes for the
-database path if you set `DATABASE_PATH` outside the image.
+### Database backups
+
+Currently done manually. Run this inside the running app container:
+
+```bash
+node -e "const db = require('better-sqlite3')('/data/hermes.db'); db.backup(\`/data/hermes-backup-\${new Date().toISOString().slice(0,10)}.db\`).then(() => console.log('done'));"
+```
+
+The backup file is written next to the live DB on the same volume, e.g.
+`/data/hermes-backup-2026-04-28.db`.
 
 ## Stack
 

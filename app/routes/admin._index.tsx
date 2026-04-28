@@ -26,6 +26,8 @@ import {
 } from "~/lib/time-formatting";
 
 const TEMPLATE_QUERY = "template";
+const CATEGORY_QUERY = "category";
+const EXPAND_QUERY = "expand";
 
 function parseOpenTemplateId(url: string): number | null {
   const raw = new URL(url).searchParams.get(TEMPLATE_QUERY);
@@ -56,6 +58,12 @@ export async function action({ request }: Route.ActionArgs) {
     return { formError: "Not signed in." as const };
   }
 
+  const rawCategory = String(form.get("category") ?? "").trim();
+  const category =
+    rawCategory === "admin" || rawCategory === "broadcast"
+      ? rawCategory
+      : "admin";
+
   if (intent === "delete") {
     const id = Number(form.get("id"));
     if (!Number.isInteger(id) || id < 1) {
@@ -81,6 +89,7 @@ export async function action({ request }: Route.ActionArgs) {
 
     const updated = updateTemplate(id, {
       name,
+      category,
       body,
       notes,
       appendSignature,
@@ -102,7 +111,14 @@ export async function action({ request }: Route.ActionArgs) {
       return { formError: "Name is required." as const };
     }
 
-    insertTemplate({ name, body, notes, appendSignature, updatedBy: by });
+    insertTemplate({
+      name,
+      category,
+      body,
+      notes,
+      appendSignature,
+      updatedBy: by,
+    });
     return { ok: true as const };
   }
 
@@ -117,6 +133,7 @@ export async function action({ request }: Route.ActionArgs) {
     }
     const created = insertTemplate({
       name: `${source.name} (copy)`,
+      category: source.category,
       body: source.body,
       notes: source.notes,
       appendSignature: source.appendSignature,
@@ -144,9 +161,33 @@ const HOUR_MS = 60 * 60 * 1000;
 
 type ActiveModal = null | "new" | number;
 
+type CategoryFilter = "all" | "admin" | "broadcast";
+
+function parseCategoryFilter(value: string | null): CategoryFilter {
+  if (value === "all" || value === "admin" || value === "broadcast") {
+    return value;
+  }
+  // Default filter for the page.
+  return "admin";
+}
+
+function parseExpandAll(value: string | null): boolean {
+  return value === "1" || value === "true";
+}
+
+function formatCategory(category: EmailTemplate["category"]): string {
+  return category.slice(0, 1).toUpperCase() + category.slice(1);
+}
+
 function previewBody(body: string, maxChars = 240): string {
   const plain = body
     .replace(/<[^>]*>/g, " ")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">")
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;/gi, "'")
     .replace(/\s+/g, " ")
     .trim();
   if (!plain) return "—";
@@ -243,6 +284,15 @@ export default function AdminIndex({ loaderData }: Route.ComponentProps) {
   const [searchParams, setSearchParams] = useSearchParams();
   const fetcher = useFetcher<typeof action>();
   const revalidator = useRevalidator();
+  const categoryFilter = parseCategoryFilter(searchParams.get(CATEGORY_QUERY));
+  const expandAll = parseExpandAll(searchParams.get(EXPAND_QUERY));
+  const defaultNewCategory: EmailTemplate["category"] =
+    categoryFilter === "broadcast" ? "broadcast" : "admin";
+
+  const visibleTemplates =
+    categoryFilter === "all"
+      ? templates
+      : templates.filter((t) => t.category === categoryFilter);
   const [activeModal, setActiveModal] = useState<ActiveModal>(
     () => openTemplateId ?? null,
   );
@@ -349,6 +399,13 @@ export default function AdminIndex({ loaderData }: Route.ComponentProps) {
     // collapse the notes field after the user clicks "Add notes".
   }, [isOpen, isNew, activeModal]);
 
+  useEffect(() => {
+    setDraggingId(null);
+    setDropLineIndex(null);
+    dropLineIndexRef.current = null;
+    dragSessionRef.current = false;
+  }, [categoryFilter]);
+
   const formError =
     fetcher.state === "idle" &&
     fetcher.data &&
@@ -454,7 +511,7 @@ export default function AdminIndex({ loaderData }: Route.ComponentProps) {
             Lichess email templates
           </h1>
           <p className="mt-2 text-sm leading-relaxed text-zinc-400">
-            Here are all of our email templates which are insertable using the{" "}
+            These email templates are used in the{" "}
             <a
               href="https://github.com/ornicar/lichess-gmail"
               target="_blank"
@@ -463,15 +520,15 @@ export default function AdminIndex({ loaderData }: Route.ComponentProps) {
             >
               lichess-gmail
             </a>{" "}
-            Chrome/Firefox extension.
+            browser extension.
           </p>
           <p className="mt-2 text-sm text-zinc-500">
-            After making updates here, remember to click &quot;Reload&quot; in
-            the extension.
+            You can drag the handle to reorder the templates. After making
+            updates here, remember to click &quot;Reload&quot; in the extension.
           </p>
         </div>
 
-        <div className="flex items-end justify-between gap-3">
+        <div className="flex flex-wrap items-end justify-between gap-3">
           <button
             type="button"
             onClick={() => revalidator.revalidate()}
@@ -494,13 +551,62 @@ export default function AdminIndex({ loaderData }: Route.ComponentProps) {
             </svg>
             {refreshBusy ? "Refreshing…" : "Refresh"}
           </button>
-          <button
-            type="button"
-            onClick={() => setActiveWithUrl("new")}
-            className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-500"
-          >
-            New template
-          </button>
+          <div className="ml-auto flex flex-wrap items-center gap-3">
+            <label className="flex items-center gap-2 border-r border-zinc-800 pr-3 text-sm text-zinc-400">
+              <span className="text-xs font-medium uppercase tracking-wide text-zinc-500">
+                Expand all
+              </span>
+              <input
+                type="checkbox"
+                checked={expandAll}
+                onChange={(e) => {
+                  const checked = e.currentTarget.checked;
+                  setSearchParams(
+                    (prev) => {
+                      const p = new URLSearchParams(prev);
+                      if (checked) p.set(EXPAND_QUERY, "1");
+                      else p.delete(EXPAND_QUERY);
+                      return p;
+                    },
+                    { replace: true },
+                  );
+                }}
+                className="h-4 w-4 rounded border-zinc-600 bg-zinc-950 text-emerald-600 focus:ring-emerald-600"
+              />
+            </label>
+            <label className="flex items-center gap-2 pl-1 text-sm text-zinc-400">
+              <span className="text-xs font-medium uppercase tracking-wide text-zinc-500">
+                Category
+              </span>
+              <select
+                value={categoryFilter}
+                onChange={(e) => {
+                  const next = parseCategoryFilter(e.target.value);
+                  setSearchParams(
+                    (prev) => {
+                      const p = new URLSearchParams(prev);
+                      if (next === "admin") p.delete(CATEGORY_QUERY);
+                      else p.set(CATEGORY_QUERY, next);
+                      return p;
+                    },
+                    { replace: true },
+                  );
+                }}
+                className="rounded-md border border-zinc-700 bg-zinc-950 px-2 py-1.5 text-sm text-white focus:border-emerald-600 focus:outline-none focus:ring-1 focus:ring-emerald-600"
+              >
+                <option value="all">All</option>
+                <option value="admin">Admin</option>
+                <option value="broadcast">Broadcast</option>
+              </select>
+            </label>
+            <button
+              type="button"
+              onClick={() => setActiveWithUrl("new")}
+              className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-500"
+            >
+              New template
+            </button>
+          </div>
         </div>
 
         {lastRefreshedAt !== null && now - lastRefreshedAt > HOUR_MS ? (
@@ -514,9 +620,11 @@ export default function AdminIndex({ loaderData }: Route.ComponentProps) {
         ) : null}
       </div>
 
-      {templates.length === 0 ? (
+      {visibleTemplates.length === 0 ? (
         <p className="rounded-lg border border-dashed border-zinc-800 bg-zinc-900/50 px-4 py-8 text-center text-sm text-zinc-500">
-          No templates yet.
+          {categoryFilter === "all"
+            ? "No templates yet."
+            : `No ${formatCategory(categoryFilter)} templates yet.`}
         </p>
       ) : (
         <div className="overflow-x-auto rounded-lg border border-zinc-800 bg-zinc-900/40">
@@ -567,7 +675,7 @@ export default function AdminIndex({ loaderData }: Route.ComponentProps) {
               </tr>
             </thead>
             <tbody>
-              {templates.map((t, i) => (
+              {visibleTemplates.map((t, i) => (
                 <Fragment key={t.id}>
                   {draggingId !== null && dropLineIndex === i ? (
                     <DropIndicatorRow />
@@ -606,13 +714,23 @@ export default function AdminIndex({ loaderData }: Route.ComponentProps) {
                       if (insertIndex === null) {
                         return;
                       }
-                      const ids = templates.map((x) => x.id);
-                      const next = buildReorderedIds(ids, dragged, insertIndex);
+                      const allIds = templates.map((x) => x.id);
+                      const visibleIds = visibleTemplates.map((x) => x.id);
+                      const nextVisible = buildReorderedIds(
+                        visibleIds,
+                        dragged,
+                        insertIndex,
+                      );
+                      const visibleSet = new Set(visibleIds);
+                      let j = 0;
+                      const next = allIds.map((id) =>
+                        visibleSet.has(id) ? nextVisible[j++] : id,
+                      );
                       dragSessionRef.current = false;
                       setDraggingId(null);
                       setDropLineIndex(null);
                       dropLineIndexRef.current = null;
-                      if (next.join(",") === ids.join(",")) {
+                      if (next.join(",") === allIds.join(",")) {
                         return;
                       }
                       fetcher.submit(
@@ -649,26 +767,44 @@ export default function AdminIndex({ loaderData }: Route.ComponentProps) {
                     </td>
                     <td className="align-middle px-4 py-3">
                       <div
-                        className="truncate font-medium text-white"
-                        title={t.name}
+                        className={
+                          expandAll
+                            ? "font-medium text-white"
+                            : "truncate font-medium text-white"
+                        }
+                        title={expandAll ? undefined : t.name}
                       >
                         {t.name}
                       </div>
                     </td>
                     <td className="align-top px-4 py-3 text-zinc-500">
                       <div
-                        className="line-clamp-2 wrap-break-word"
-                        title={previewBody(t.body)}
+                        className={
+                          expandAll
+                            ? "wrap-break-word"
+                            : "line-clamp-2 wrap-break-word"
+                        }
+                        title={
+                          expandAll ? undefined : previewBody(t.body)
+                        }
                       >
-                        {previewBody(t.body)}
+                        {expandAll ? previewBody(t.body, 10_000) : previewBody(t.body)}
                       </div>
                     </td>
                     <td className="align-top px-4 py-3 text-zinc-500">
                       <div
-                        className="line-clamp-2 wrap-break-word"
-                        title={previewBody(t.notes)}
+                        className={
+                          expandAll
+                            ? "wrap-break-word"
+                            : "line-clamp-2 wrap-break-word"
+                        }
+                        title={
+                          expandAll ? undefined : previewBody(t.notes)
+                        }
                       >
-                        {previewBody(t.notes) || "—"}
+                        {(expandAll
+                          ? previewBody(t.notes, 10_000)
+                          : previewBody(t.notes)) || "—"}
                       </div>
                     </td>
                     <td className="whitespace-nowrap px-3 py-3 align-top text-zinc-400">
@@ -683,7 +819,8 @@ export default function AdminIndex({ loaderData }: Route.ComponentProps) {
                   </tr>
                 </Fragment>
               ))}
-              {draggingId !== null && dropLineIndex === templates.length ? (
+              {draggingId !== null &&
+              dropLineIndex === visibleTemplates.length ? (
                 <DropIndicatorRow key="line-end" />
               ) : null}
             </tbody>
@@ -785,6 +922,25 @@ export default function AdminIndex({ loaderData }: Route.ComponentProps) {
                       }
                       className="w-full rounded-md border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-white focus:border-emerald-600 focus:outline-none focus:ring-1 focus:ring-emerald-600 disabled:opacity-50"
                     />
+                  </label>
+
+                  <label className="block space-y-1.5">
+                    <span className="text-xs font-medium uppercase tracking-wide text-zinc-500">
+                      Category
+                    </span>
+                    <select
+                      name="category"
+                      disabled={isSubmitting}
+                      defaultValue={
+                        !isNew && editing
+                          ? editing.category
+                          : defaultNewCategory
+                      }
+                      className="w-full rounded-md border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-white focus:border-emerald-600 focus:outline-none focus:ring-1 focus:ring-emerald-600 disabled:opacity-50"
+                    >
+                      <option value="admin">Admin</option>
+                      <option value="broadcast">Broadcast</option>
+                    </select>
                   </label>
 
                   <div className="space-y-1.5">
