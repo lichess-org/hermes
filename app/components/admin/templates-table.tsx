@@ -248,16 +248,7 @@ export function TemplatesTable({
                   </div>
                 </td>
                 <td className="align-middle px-4 py-3">
-                  <div
-                    className={
-                      expandAll
-                        ? "font-medium text-white"
-                        : "truncate font-medium text-white"
-                    }
-                    title={expandAll ? undefined : t.name}
-                  >
-                    {t.name}
-                  </div>
+                  <div className="font-medium text-white">{t.name}</div>
                 </td>
                 <td className="align-top px-4 py-3 text-zinc-500">
                   <div
