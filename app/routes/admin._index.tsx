@@ -1,10 +1,4 @@
-import {
-  useCallback,
-  useEffect,
-  useId,
-  useRef,
-  useState,
-} from "react";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { useFetcher, useRevalidator, useSearchParams } from "react-router";
 import type { Route } from "./+types/admin._index";
 import type { EmailTemplate } from "~/lib/db.server";
@@ -20,10 +14,7 @@ import {
   reorderTemplates,
   updateTemplate,
 } from "~/lib/db.server";
-import {
-  formatFullTimestamp,
-  formatRelativeTime,
-} from "~/lib/time-formatting";
+import { formatFullTimestamp, formatRelativeTime } from "~/lib/time-formatting";
 
 const TEMPLATE_QUERY = "template";
 const CATEGORY_QUERY = "category";
@@ -715,7 +706,7 @@ export default function AdminIndex({ loaderData }: Route.ComponentProps) {
                   type="submit"
                   disabled={fetcher.state !== "idle"}
                   aria-busy={fetcher.state !== "idle"}
-                  className="min-w-[5.5rem] rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-500 disabled:opacity-50"
+                  className="min-w-22 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-500 disabled:opacity-50"
                 >
                   {isNew ? "Create" : "Save"}
                 </button>
@@ -727,7 +718,7 @@ export default function AdminIndex({ loaderData }: Route.ComponentProps) {
 
       {deleteConfirmId !== null ? (
         <div
-          className="fixed inset-0 z-[60] flex items-center justify-center p-4"
+          className="fixed inset-0 z-60 flex items-center justify-center p-4"
           role="presentation"
         >
           <div className="absolute inset-0 bg-black/80" aria-hidden="true" />

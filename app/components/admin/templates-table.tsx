@@ -1,4 +1,5 @@
 import { Fragment, useRef, useState } from "react";
+import sanitizeHtml from "sanitize-html";
 import type { EmailTemplate } from "~/lib/db.server";
 import {
   formatFullTimestamp,
@@ -43,6 +44,49 @@ function hasNotes(notesHtml: string): boolean {
 function updatedAtIso(isoish: string): string | undefined {
   const d = parseStoredDate(isoish);
   return Number.isNaN(d.getTime()) ? undefined : d.toISOString();
+}
+
+function safeBodyHtml(bodyHtml: string): string {
+  return sanitizeHtml(bodyHtml, {
+    allowedTags: [
+      "a",
+      "b",
+      "blockquote",
+      "br",
+      "code",
+      "div",
+      "em",
+      "h1",
+      "h2",
+      "h3",
+      "h4",
+      "h5",
+      "h6",
+      "hr",
+      "i",
+      "li",
+      "ol",
+      "p",
+      "pre",
+      "span",
+      "strong",
+      "u",
+      "ul",
+    ],
+    allowedAttributes: {
+      a: ["href", "target", "rel"],
+      "*": ["style"],
+    },
+    allowedStyles: {
+      "*": {
+        color: [/^.*$/],
+        "font-weight": [/^.*$/],
+        "font-style": [/^.*$/],
+        "text-decoration": [/^.*$/],
+      },
+    },
+    allowedSchemes: ["http", "https", "mailto"],
+  });
 }
 
 /** `insertIndex` is the gap index in the full list (0 … ids.length). */
@@ -265,18 +309,19 @@ export function TemplatesTable({
                   <div className="font-medium text-white">{t.name}</div>
                 </td>
                 <td className="align-top px-4 py-3 text-zinc-500">
-                  <div
-                    className={
-                      expandAll
-                        ? "wrap-break-word whitespace-pre-wrap"
-                        : "line-clamp-2 wrap-break-word"
-                    }
-                    title={expandAll ? undefined : previewBody(t.body)}
-                  >
-                    {expandAll
-                      ? previewBody(t.body, 10_000, true)
-                      : previewBody(t.body)}
-                  </div>
+                  {expandAll ? (
+                    <div
+                      className="prose prose-invert prose-sm max-w-none wrap-break-word [&_ul]:list-disc [&_ul]:pl-6 [&_ul]:my-2 [&_ol]:list-decimal [&_ol]:pl-6 [&_ol]:my-2 [&_li]:my-1"
+                      dangerouslySetInnerHTML={{ __html: safeBodyHtml(t.body) }}
+                    />
+                  ) : (
+                    <div
+                      className="line-clamp-2 wrap-break-word"
+                      title={previewBody(t.body)}
+                    >
+                      {previewBody(t.body)}
+                    </div>
+                  )}
                 </td>
                 <td className="align-middle text-zinc-500">
                   {hasNotes(t.notes) ? (
