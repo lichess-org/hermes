@@ -182,7 +182,7 @@ export function TemplatesTable({
   const dragSessionRef = useRef(false);
 
   return (
-    <div className="overflow-x-auto rounded-lg border border-zinc-800 bg-zinc-900/40">
+    <div className="rounded-lg border border-zinc-800 bg-zinc-900/40">
       <table className="w-full min-w-3xl table-fixed border-collapse text-left text-sm">
         <colgroup>
           <col className="w-10" />
@@ -195,26 +195,31 @@ export function TemplatesTable({
           <tr className="border-b border-zinc-800 bg-zinc-900/90">
             <th
               scope="col"
-              className="w-6 min-w-0 max-w-6 box-border px-0 py-3 text-xs font-semibold uppercase tracking-wide text-zinc-500"
+              className="sticky top-0 z-20 w-6 min-w-0 max-w-6 box-border bg-zinc-900/95 px-0 py-3 text-xs font-semibold uppercase tracking-wide text-zinc-500 backdrop-blur"
             >
               <span className="sr-only">Reorder</span>
             </th>
             <th
               scope="col"
-              className="px-4 py-3 text-xs font-semibold uppercase tracking-wide text-zinc-500"
+              className="sticky top-0 z-20 bg-zinc-900/95 px-4 py-3 text-xs font-semibold uppercase tracking-wide text-zinc-500 backdrop-blur"
             >
               Template name
             </th>
             <th
               scope="col"
-              className="px-4 py-3 text-xs font-semibold uppercase tracking-wide text-zinc-500"
+              className="sticky top-0 z-20 bg-zinc-900/95 px-4 py-3 text-xs font-semibold uppercase tracking-wide text-zinc-500 backdrop-blur"
             >
               Email body
             </th>
-            <th scope="col">{/* Notes */}</th>
             <th
               scope="col"
-              className="px-3 py-3 text-xs font-semibold uppercase tracking-wide text-zinc-500"
+              className="sticky top-0 z-20 bg-zinc-900/95 backdrop-blur"
+            >
+              {/* Notes */}
+            </th>
+            <th
+              scope="col"
+              className="sticky top-0 z-20 bg-zinc-900/95 px-3 py-3 text-xs font-semibold uppercase tracking-wide text-zinc-500 backdrop-blur"
             >
               Updated
             </th>
@@ -228,7 +233,7 @@ export function TemplatesTable({
               ) : null}
               <tr
                 tabIndex={0}
-                className={`cursor-pointer border-b border-zinc-800/90 last:border-b-0 hover:bg-zinc-800/55 focus:bg-zinc-800/55 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-emerald-600/45 odd:bg-white/[0.02] even:bg-transparent ${
+                className={`cursor-pointer border-b border-zinc-800/90 last:border-b-0 hover:bg-zinc-800/55 focus:bg-zinc-800/55 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-emerald-600/45 odd:bg-white/2 even:bg-transparent ${
                   draggingId === t.id ? "opacity-50" : ""
                 }`}
                 onClick={() => onOpenTemplate(t.id)}
