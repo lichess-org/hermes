@@ -1,14 +1,9 @@
-import {
-  Fragment,
-  useCallback,
-  useEffect,
-  useId,
-  useRef,
-  useState,
-} from "react";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { useFetcher, useRevalidator, useSearchParams } from "react-router";
 import type { Route } from "./+types/admin._index";
 import type { EmailTemplate } from "~/lib/db.server";
+import { TemplatesTable } from "~/components/admin/templates-table";
+import { TemplatesToolbar } from "~/components/admin/templates-toolbar";
 import { TemplateBodyEditor } from "~/components/template-body-editor";
 import { getRecordUpdatedBy } from "~/lib/auth.server";
 import {
@@ -19,11 +14,7 @@ import {
   reorderTemplates,
   updateTemplate,
 } from "~/lib/db.server";
-import {
-  formatFullTimestamp,
-  formatRelativeTime,
-  parseStoredDate,
-} from "~/lib/time-formatting";
+import { formatFullTimestamp, formatRelativeTime } from "~/lib/time-formatting";
 
 const TEMPLATE_QUERY = "template";
 const CATEGORY_QUERY = "category";
@@ -179,22 +170,6 @@ function formatCategory(category: EmailTemplate["category"]): string {
   return category.slice(0, 1).toUpperCase() + category.slice(1);
 }
 
-function previewBody(body: string, maxChars = 240): string {
-  const plain = body
-    .replace(/<[^>]*>/g, " ")
-    .replace(/&nbsp;/gi, " ")
-    .replace(/&amp;/gi, "&")
-    .replace(/&lt;/gi, "<")
-    .replace(/&gt;/gi, ">")
-    .replace(/&quot;/gi, '"')
-    .replace(/&#39;/gi, "'")
-    .replace(/\s+/g, " ")
-    .trim();
-  if (!plain) return "—";
-  if (plain.length <= maxChars) return plain;
-  return `${plain.slice(0, maxChars).trimEnd()}…`;
-}
-
 function isEmptyNotesHtml(html: string): boolean {
   const t = html
     .replace(/<[^>]*>/g, " ")
@@ -202,81 +177,6 @@ function isEmptyNotesHtml(html: string): boolean {
     .replace(/\s+/g, " ")
     .trim();
   return t.length === 0;
-}
-
-function updatedAtIso(isoish: string): string | undefined {
-  const d = parseStoredDate(isoish);
-  return Number.isNaN(d.getTime()) ? undefined : d.toISOString();
-}
-
-/** `insertIndex` is the gap index in the full list (0 … ids.length). */
-function buildReorderedIds(
-  ids: number[],
-  draggedId: number,
-  insertIndex: number,
-): number[] {
-  const from = ids.indexOf(draggedId);
-  if (from === -1) return ids;
-  const next = ids.filter((id) => id !== draggedId);
-  let at = insertIndex;
-  if (from < insertIndex) at = insertIndex - 1;
-  next.splice(at, 0, draggedId);
-  return next;
-}
-
-function DropIndicatorRow() {
-  return (
-    <tr className="pointer-events-none" aria-hidden>
-      <td colSpan={5} className="h-0 border-0 p-0">
-        <div className="h-[3px] rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.6)]" />
-      </td>
-    </tr>
-  );
-}
-
-function DragHandle({
-  templateId,
-  disabled,
-  onDragStart,
-  onDragEnd,
-}: {
-  templateId: number;
-  disabled?: boolean;
-  onDragStart?: () => void;
-  onDragEnd?: () => void;
-}) {
-  return (
-    <div
-      draggable={!disabled}
-      aria-label="Drag to reorder"
-      title="Drag to reorder"
-      className={`flex shrink-0 cursor-grab touch-none items-center justify-center rounded p-1 leading-none text-zinc-500 active:cursor-grabbing ${
-        disabled
-          ? "cursor-not-allowed opacity-40"
-          : "hover:bg-zinc-800 hover:text-zinc-300"
-      }`}
-      onClick={(e) => e.stopPropagation()}
-      onDragStart={(e) => {
-        if (disabled) {
-          e.preventDefault();
-          return;
-        }
-        e.stopPropagation();
-        e.dataTransfer.effectAllowed = "move";
-        e.dataTransfer.setData("text/plain", String(templateId));
-        onDragStart?.();
-      }}
-      onDragEnd={() => {
-        onDragEnd?.();
-      }}
-    >
-      <span className="grid grid-cols-2 gap-0.5" aria-hidden>
-        {Array.from({ length: 6 }, (_, i) => (
-          <span key={i} className="h-1 w-1 rounded-sm bg-current" />
-        ))}
-      </span>
-    </div>
-  );
 }
 
 export default function AdminIndex({ loaderData }: Route.ComponentProps) {
@@ -299,10 +199,6 @@ export default function AdminIndex({ loaderData }: Route.ComponentProps) {
   const [deleteConfirmId, setDeleteConfirmId] = useState<number | null>(null);
   const [lastRefreshedAt, setLastRefreshedAt] = useState<number | null>(null);
   const [now, setNow] = useState(() => Date.now());
-  const [draggingId, setDraggingId] = useState<number | null>(null);
-  const [dropLineIndex, setDropLineIndex] = useState<number | null>(null);
-  const dropLineIndexRef = useRef<number | null>(null);
-  const dragSessionRef = useRef(false);
   const [notesOpen, setNotesOpen] = useState(false);
   const [shareCopyFeedback, setShareCopyFeedback] = useState(false);
   const titleId = useId();
@@ -398,13 +294,6 @@ export default function AdminIndex({ loaderData }: Route.ComponentProps) {
     // Intentionally omit `templates` from deps so list revalidations do not
     // collapse the notes field after the user clicks "Add notes".
   }, [isOpen, isNew, activeModal]);
-
-  useEffect(() => {
-    setDraggingId(null);
-    setDropLineIndex(null);
-    dropLineIndexRef.current = null;
-    dragSessionRef.current = false;
-  }, [categoryFilter]);
 
   const formError =
     fetcher.state === "idle" &&
@@ -528,86 +417,36 @@ export default function AdminIndex({ loaderData }: Route.ComponentProps) {
           </p>
         </div>
 
-        <div className="flex flex-wrap items-end justify-between gap-3">
-          <button
-            type="button"
-            onClick={() => revalidator.revalidate()}
-            disabled={refreshBusy || listMutationBusy}
-            className="inline-flex items-center gap-1.5 rounded text-sm font-medium text-zinc-400 underline-offset-2 hover:text-zinc-200 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/45 disabled:cursor-not-allowed disabled:no-underline disabled:opacity-50"
-          >
-            <svg
-              className={`h-4 w-4 shrink-0 ${refreshBusy ? "animate-spin" : ""}`}
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-              strokeWidth={2}
-              aria-hidden
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-              />
-            </svg>
-            {refreshBusy ? "Refreshing…" : "Refresh"}
-          </button>
-          <div className="ml-auto flex flex-wrap items-center gap-3">
-            <label className="flex items-center gap-2 border-r border-zinc-800 pr-3 text-sm text-zinc-400">
-              <span className="text-xs font-medium uppercase tracking-wide text-zinc-500">
-                Expand all
-              </span>
-              <input
-                type="checkbox"
-                checked={expandAll}
-                onChange={(e) => {
-                  const checked = e.currentTarget.checked;
-                  setSearchParams(
-                    (prev) => {
-                      const p = new URLSearchParams(prev);
-                      if (checked) p.set(EXPAND_QUERY, "1");
-                      else p.delete(EXPAND_QUERY);
-                      return p;
-                    },
-                    { replace: true },
-                  );
-                }}
-                className="h-4 w-4 rounded border-zinc-600 bg-zinc-950 text-emerald-600 focus:ring-emerald-600"
-              />
-            </label>
-            <label className="flex items-center gap-2 pl-1 text-sm text-zinc-400">
-              <span className="text-xs font-medium uppercase tracking-wide text-zinc-500">
-                Category
-              </span>
-              <select
-                value={categoryFilter}
-                onChange={(e) => {
-                  const next = parseCategoryFilter(e.target.value);
-                  setSearchParams(
-                    (prev) => {
-                      const p = new URLSearchParams(prev);
-                      if (next === "admin") p.delete(CATEGORY_QUERY);
-                      else p.set(CATEGORY_QUERY, next);
-                      return p;
-                    },
-                    { replace: true },
-                  );
-                }}
-                className="rounded-md border border-zinc-700 bg-zinc-950 px-2 py-1.5 text-sm text-white focus:border-emerald-600 focus:outline-none focus:ring-1 focus:ring-emerald-600"
-              >
-                <option value="all">All</option>
-                <option value="admin">Admin</option>
-                <option value="broadcast">Broadcast</option>
-              </select>
-            </label>
-            <button
-              type="button"
-              onClick={() => setActiveWithUrl("new")}
-              className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-500"
-            >
-              New template
-            </button>
-          </div>
-        </div>
+        <TemplatesToolbar
+          refreshBusy={refreshBusy}
+          listMutationBusy={listMutationBusy}
+          expandAll={expandAll}
+          categoryFilter={categoryFilter}
+          onRefresh={() => revalidator.revalidate()}
+          onExpandAllChange={(checked) => {
+            setSearchParams(
+              (prev) => {
+                const p = new URLSearchParams(prev);
+                if (checked) p.set(EXPAND_QUERY, "1");
+                else p.delete(EXPAND_QUERY);
+                return p;
+              },
+              { replace: true },
+            );
+          }}
+          onCategoryFilterChange={(next) => {
+            setSearchParams(
+              (prev) => {
+                const p = new URLSearchParams(prev);
+                if (next === "admin") p.delete(CATEGORY_QUERY);
+                else p.set(CATEGORY_QUERY, next);
+                return p;
+              },
+              { replace: true },
+            );
+          }}
+          onNewTemplate={() => setActiveWithUrl("new")}
+        />
 
         {lastRefreshedAt !== null && now - lastRefreshedAt > HOUR_MS ? (
           <p
@@ -627,205 +466,22 @@ export default function AdminIndex({ loaderData }: Route.ComponentProps) {
             : `No ${formatCategory(categoryFilter)} templates yet.`}
         </p>
       ) : (
-        <div className="overflow-x-auto rounded-lg border border-zinc-800 bg-zinc-900/40">
-          <table className="w-full min-w-[48rem] table-fixed border-collapse text-left text-sm">
-            <colgroup>
-              {/* Fixed px width: % widths on <col> are of the *whole* table, so
-                  mixing 86% with a fixed first col overflows and browsers
-                  redistribute — the drag column can grow. Remaining columns
-                  share the rest of the table width evenly. */}
-              <col style={{ width: "2.5rem" }} />
-              <col className="w-[30%]" />
-              <col className="w-[40%]" />
-              <col />
-              <col />
-            </colgroup>
-            <thead>
-              <tr className="border-b border-zinc-800 bg-zinc-900/90">
-                <th
-                  scope="col"
-                  className="w-[1.5rem] min-w-0 max-w-[1.5rem] box-border px-0 py-3 text-xs font-semibold uppercase tracking-wide text-zinc-500"
-                >
-                  <span className="sr-only">Reorder</span>
-                </th>
-                <th
-                  scope="col"
-                  className="px-4 py-3 text-xs font-semibold uppercase tracking-wide text-zinc-500"
-                >
-                  Template name
-                </th>
-                <th
-                  scope="col"
-                  className="px-4 py-3 text-xs font-semibold uppercase tracking-wide text-zinc-500"
-                >
-                  Email body
-                </th>
-                <th
-                  scope="col"
-                  className="px-4 py-3 text-xs font-semibold uppercase tracking-wide text-zinc-500"
-                >
-                  Notes
-                </th>
-                <th
-                  scope="col"
-                  className="px-3 py-3 text-xs font-semibold uppercase tracking-wide text-zinc-500"
-                >
-                  Updated
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {visibleTemplates.map((t, i) => (
-                <Fragment key={t.id}>
-                  {draggingId !== null && dropLineIndex === i ? (
-                    <DropIndicatorRow />
-                  ) : null}
-                  <tr
-                    tabIndex={0}
-                    className={`cursor-pointer border-b border-zinc-800/90 last:border-b-0 hover:bg-zinc-800/55 focus:bg-zinc-800/55 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-emerald-600/45 ${
-                      draggingId === t.id ? "opacity-50" : ""
-                    }`}
-                    onClick={() => setActiveWithUrl(t.id)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" || e.key === " ") {
-                        e.preventDefault();
-                        setActiveWithUrl(t.id);
-                      }
-                    }}
-                    onDragOver={(e) => {
-                      if (!dragSessionRef.current) return;
-                      e.preventDefault();
-                      e.dataTransfer.dropEffect = "move";
-                      const rect = e.currentTarget.getBoundingClientRect();
-                      const midY = rect.top + rect.height / 2;
-                      const insertIndex = e.clientY <= midY ? i : i + 1;
-                      dropLineIndexRef.current = insertIndex;
-                      setDropLineIndex(insertIndex);
-                    }}
-                    onDrop={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      const raw = e.dataTransfer.getData("text/plain");
-                      const dragged = Number(raw);
-                      if (!Number.isInteger(dragged)) {
-                        return;
-                      }
-                      const insertIndex = dropLineIndexRef.current;
-                      if (insertIndex === null) {
-                        return;
-                      }
-                      const allIds = templates.map((x) => x.id);
-                      const visibleIds = visibleTemplates.map((x) => x.id);
-                      const nextVisible = buildReorderedIds(
-                        visibleIds,
-                        dragged,
-                        insertIndex,
-                      );
-                      const visibleSet = new Set(visibleIds);
-                      let j = 0;
-                      const next = allIds.map((id) =>
-                        visibleSet.has(id) ? nextVisible[j++] : id,
-                      );
-                      dragSessionRef.current = false;
-                      setDraggingId(null);
-                      setDropLineIndex(null);
-                      dropLineIndexRef.current = null;
-                      if (next.join(",") === allIds.join(",")) {
-                        return;
-                      }
-                      fetcher.submit(
-                        {
-                          intent: "reorder",
-                          order: next.join(","),
-                        },
-                        { method: "post" },
-                      );
-                    }}
-                  >
-                    <td
-                      className="box-border w-[1.5rem] min-w-0 max-w-[1.5rem] align-middle px-0 py-3"
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      <div className="flex w-full min-w-0 items-center justify-center leading-none">
-                        <DragHandle
-                          templateId={t.id}
-                          disabled={listMutationBusy}
-                          onDragStart={() => {
-                            dragSessionRef.current = true;
-                            setDraggingId(t.id);
-                            setDropLineIndex(null);
-                            dropLineIndexRef.current = null;
-                          }}
-                          onDragEnd={() => {
-                            dragSessionRef.current = false;
-                            setDraggingId(null);
-                            setDropLineIndex(null);
-                            dropLineIndexRef.current = null;
-                          }}
-                        />
-                      </div>
-                    </td>
-                    <td className="align-middle px-4 py-3">
-                      <div
-                        className={
-                          expandAll
-                            ? "font-medium text-white"
-                            : "truncate font-medium text-white"
-                        }
-                        title={expandAll ? undefined : t.name}
-                      >
-                        {t.name}
-                      </div>
-                    </td>
-                    <td className="align-top px-4 py-3 text-zinc-500">
-                      <div
-                        className={
-                          expandAll
-                            ? "wrap-break-word"
-                            : "line-clamp-2 wrap-break-word"
-                        }
-                        title={
-                          expandAll ? undefined : previewBody(t.body)
-                        }
-                      >
-                        {expandAll ? previewBody(t.body, 10_000) : previewBody(t.body)}
-                      </div>
-                    </td>
-                    <td className="align-top px-4 py-3 text-zinc-500">
-                      <div
-                        className={
-                          expandAll
-                            ? "wrap-break-word"
-                            : "line-clamp-2 wrap-break-word"
-                        }
-                        title={
-                          expandAll ? undefined : previewBody(t.notes)
-                        }
-                      >
-                        {(expandAll
-                          ? previewBody(t.notes, 10_000)
-                          : previewBody(t.notes)) || "—"}
-                      </div>
-                    </td>
-                    <td className="whitespace-nowrap px-3 py-3 align-top text-zinc-400">
-                      <time
-                        dateTime={updatedAtIso(t.updatedAt)}
-                        title={formatFullTimestamp(t.updatedAt)}
-                        className="text-xs"
-                      >
-                        {formatRelativeTime(t.updatedAt)}
-                      </time>
-                    </td>
-                  </tr>
-                </Fragment>
-              ))}
-              {draggingId !== null &&
-              dropLineIndex === visibleTemplates.length ? (
-                <DropIndicatorRow key="line-end" />
-              ) : null}
-            </tbody>
-          </table>
-        </div>
+        <TemplatesTable
+          templates={templates}
+          visibleTemplates={visibleTemplates}
+          expandAll={expandAll}
+          listMutationBusy={listMutationBusy}
+          onOpenTemplate={(templateId) => setActiveWithUrl(templateId)}
+          onReorder={(next) => {
+            fetcher.submit(
+              {
+                intent: "reorder",
+                order: next.join(","),
+              },
+              { method: "post" },
+            );
+          }}
+        />
       )}
 
       {isOpen && (isNew || editing) ? (
@@ -1050,7 +706,7 @@ export default function AdminIndex({ loaderData }: Route.ComponentProps) {
                   type="submit"
                   disabled={fetcher.state !== "idle"}
                   aria-busy={fetcher.state !== "idle"}
-                  className="min-w-[5.5rem] rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-500 disabled:opacity-50"
+                  className="min-w-22 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-500 disabled:opacity-50"
                 >
                   {isNew ? "Create" : "Save"}
                 </button>
@@ -1062,7 +718,7 @@ export default function AdminIndex({ loaderData }: Route.ComponentProps) {
 
       {deleteConfirmId !== null ? (
         <div
-          className="fixed inset-0 z-[60] flex items-center justify-center p-4"
+          className="fixed inset-0 z-60 flex items-center justify-center p-4"
           role="presentation"
         >
           <div className="absolute inset-0 bg-black/80" aria-hidden="true" />

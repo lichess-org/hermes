@@ -42,15 +42,13 @@ function mapRow(row: TemplateRow): EmailTemplate {
 }
 
 const dbPath =
-  process.env.DATABASE_PATH ??
-  path.join(process.cwd(), "data", "hermes.db");
-
+  process.env.DATABASE_PATH || path.join(process.cwd(), "data", "hermes.db");
 let db: Database.Database | null = null;
 
 function getColumnNames(database: Database.Database, table: string): string[] {
-  const rows = database
-    .prepare(`PRAGMA table_info(${table})`)
-    .all() as { name: string }[];
+  const rows = database.prepare(`PRAGMA table_info(${table})`).all() as {
+    name: string;
+  }[];
   return rows.map((r) => r.name);
 }
 
@@ -271,9 +269,7 @@ export function updateTemplate(
     body: input.body ?? existing.body,
     notes: input.notes ?? existing.notes,
     updated_by:
-      input.updatedBy !== undefined
-        ? input.updatedBy
-        : existing.updatedBy,
+      input.updatedBy !== undefined ? input.updatedBy : existing.updatedBy,
     append_signature:
       input.appendSignature !== undefined
         ? input.appendSignature
@@ -301,11 +297,14 @@ export function updateTemplate(
   return getTemplateById(id);
 }
 
-export function reorderTemplates(orderedIds: number[], updatedBy: string): boolean {
+export function reorderTemplates(
+  orderedIds: number[],
+  updatedBy: string,
+): boolean {
   const database = getDb();
-  const rows = database
-    .prepare(`SELECT id FROM email_templates`)
-    .all() as { id: number }[];
+  const rows = database.prepare(`SELECT id FROM email_templates`).all() as {
+    id: number;
+  }[];
   const existing = new Set(rows.map((r) => r.id));
   if (orderedIds.length !== existing.size) {
     return false;
