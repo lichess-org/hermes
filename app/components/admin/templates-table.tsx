@@ -6,20 +6,34 @@ import {
   parseStoredDate,
 } from "~/lib/time-formatting";
 
-function previewBody(body: string, maxChars = 240): string {
-  const plain = body
+function previewBody(
+  body: string,
+  maxChars = 240,
+  preserveLineBreaks = false,
+): string {
+  const normalized = preserveLineBreaks
+    ? body
+        .replace(/<br\s*\/?>/gi, "\n")
+        .replace(/<\/(p|div|li|h[1-6]|tr|blockquote)>/gi, "\n")
+    : body;
+  const plain = normalized
     .replace(/<[^>]*>/g, " ")
     .replace(/&nbsp;/gi, " ")
     .replace(/&amp;/gi, "&")
     .replace(/&lt;/gi, "<")
     .replace(/&gt;/gi, ">")
     .replace(/&quot;/gi, '"')
-    .replace(/&#39;/gi, "'")
-    .replace(/\s+/g, " ")
-    .trim();
-  if (!plain) return "—";
-  if (plain.length <= maxChars) return plain;
-  return `${plain.slice(0, maxChars).trimEnd()}…`;
+    .replace(/&#39;/gi, "'");
+  const text = preserveLineBreaks
+    ? plain
+        .replace(/[ \t]+\n/g, "\n")
+        .replace(/\n[ \t]+/g, "\n")
+        .replace(/\n{3,}/g, "\n\n")
+        .trim()
+    : plain.replace(/\s+/g, " ").trim();
+  if (!text) return "—";
+  if (text.length <= maxChars) return text;
+  return `${text.slice(0, maxChars).trimEnd()}…`;
 }
 
 function hasNotes(notesHtml: string): boolean {
@@ -254,13 +268,13 @@ export function TemplatesTable({
                   <div
                     className={
                       expandAll
-                        ? "wrap-break-word"
+                        ? "wrap-break-word whitespace-pre-wrap"
                         : "line-clamp-2 wrap-break-word"
                     }
                     title={expandAll ? undefined : previewBody(t.body)}
                   >
                     {expandAll
-                      ? previewBody(t.body, 10_000)
+                      ? previewBody(t.body, 10_000, true)
                       : previewBody(t.body)}
                   </div>
                 </td>
