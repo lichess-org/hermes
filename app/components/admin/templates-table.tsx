@@ -22,6 +22,10 @@ function previewBody(body: string, maxChars = 240): string {
   return `${plain.slice(0, maxChars).trimEnd()}…`;
 }
 
+function hasNotes(notesHtml: string): boolean {
+  return previewBody(notesHtml, 10_000) !== "—";
+}
+
 function updatedAtIso(isoish: string): string | undefined {
   const d = parseStoredDate(isoish);
   return Number.isNaN(d.getTime()) ? undefined : d.toISOString();
@@ -121,19 +125,19 @@ export function TemplatesTable({
 
   return (
     <div className="overflow-x-auto rounded-lg border border-zinc-800 bg-zinc-900/40">
-      <table className="w-full min-w-[48rem] table-fixed border-collapse text-left text-sm">
+      <table className="w-full min-w-3xl table-fixed border-collapse text-left text-sm">
         <colgroup>
-          <col style={{ width: "2.5rem" }} />
+          <col className="w-10" />
           <col className="w-[30%]" />
-          <col className="w-[40%]" />
-          <col />
+          <col className="w-[50%]" />
+          <col className="w-5" />
           <col />
         </colgroup>
         <thead>
           <tr className="border-b border-zinc-800 bg-zinc-900/90">
             <th
               scope="col"
-              className="w-[1.5rem] min-w-0 max-w-[1.5rem] box-border px-0 py-3 text-xs font-semibold uppercase tracking-wide text-zinc-500"
+              className="w-6 min-w-0 max-w-6 box-border px-0 py-3 text-xs font-semibold uppercase tracking-wide text-zinc-500"
             >
               <span className="sr-only">Reorder</span>
             </th>
@@ -149,12 +153,7 @@ export function TemplatesTable({
             >
               Email body
             </th>
-            <th
-              scope="col"
-              className="px-4 py-3 text-xs font-semibold uppercase tracking-wide text-zinc-500"
-            >
-              Notes
-            </th>
+            <th scope="col">{/* Notes */}</th>
             <th
               scope="col"
               className="px-3 py-3 text-xs font-semibold uppercase tracking-wide text-zinc-500"
@@ -226,7 +225,7 @@ export function TemplatesTable({
                 }}
               >
                 <td
-                  className="box-border w-[1.5rem] min-w-0 max-w-[1.5rem] align-middle px-0 py-3"
+                  className="box-border w-6 min-w-0 max-w-6 align-middle px-0 py-3"
                   onClick={(e) => e.stopPropagation()}
                 >
                   <div className="flex w-full min-w-0 items-center justify-center leading-none">
@@ -274,19 +273,27 @@ export function TemplatesTable({
                       : previewBody(t.body)}
                   </div>
                 </td>
-                <td className="align-top px-4 py-3 text-zinc-500">
-                  <div
-                    className={
-                      expandAll
-                        ? "wrap-break-word"
-                        : "line-clamp-2 wrap-break-word"
-                    }
-                    title={expandAll ? undefined : previewBody(t.notes)}
-                  >
-                    {(expandAll
-                      ? previewBody(t.notes, 10_000)
-                      : previewBody(t.notes)) || "—"}
-                  </div>
+                <td className="align-middle text-zinc-500">
+                  {hasNotes(t.notes) ? (
+                    <div
+                      className="flex h-full justify-center text-zinc-400 hover:text-zinc-200"
+                      title={previewBody(t.notes, 10_000)}
+                      aria-label="Template has notes"
+                    >
+                      <svg
+                        viewBox="0 0 20 20"
+                        fill="currentColor"
+                        className="h-4.5 w-4.5"
+                        aria-hidden
+                      >
+                        <path
+                          fillRule="evenodd"
+                          d="M18 10A8 8 0 114.94 3.94 8 8 0 0118 10zm-7-4a1 1 0 10-2 0 1 1 0 002 0zm-2 3a1 1 0 000 2v3a1 1 0 102 0v-3a1 1 0 10-2 0z"
+                          clipRule="evenodd"
+                        />
+                      </svg>
+                    </div>
+                  ) : null}
                 </td>
                 <td className="whitespace-nowrap px-3 py-3 align-top text-zinc-400">
                   <div className="flex-col">
