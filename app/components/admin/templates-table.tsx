@@ -228,7 +228,7 @@ export function TemplatesTable({
               ) : null}
               <tr
                 tabIndex={0}
-                className={`cursor-pointer border-b border-zinc-800/90 last:border-b-0 hover:bg-zinc-800/55 focus:bg-zinc-800/55 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-emerald-600/45 ${
+                className={`cursor-pointer border-b border-zinc-800/90 last:border-b-0 hover:bg-zinc-800/55 focus:bg-zinc-800/55 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-emerald-600/45 odd:bg-white/[0.02] even:bg-transparent ${
                   draggingId === t.id ? "opacity-50" : ""
                 }`}
                 onClick={() => onOpenTemplate(t.id)}
@@ -308,7 +308,7 @@ export function TemplatesTable({
                 <td className="align-middle px-4 py-3">
                   <div className="font-medium text-white">{t.name}</div>
                 </td>
-                <td className="align-top px-4 py-3 text-zinc-500">
+                <td className="align-middle px-4 py-3 text-zinc-500">
                   {expandAll ? (
                     <div
                       className="prose prose-invert prose-sm max-w-none wrap-break-word [&_ul]:list-disc [&_ul]:pl-6 [&_ul]:my-2 [&_ol]:list-decimal [&_ol]:pl-6 [&_ol]:my-2 [&_li]:my-1"
@@ -345,7 +345,7 @@ export function TemplatesTable({
                     </div>
                   ) : null}
                 </td>
-                <td className="whitespace-nowrap px-3 py-3 align-top text-zinc-400">
+                <td className="whitespace-nowrap px-3 py-3 align-middle text-zinc-400">
                   <div className="flex-col">
                     <div className="text-xs">{t.updatedBy}</div>
                     <time
