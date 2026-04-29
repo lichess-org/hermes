@@ -2,10 +2,12 @@ import Database from "better-sqlite3";
 import fs from "node:fs";
 import path from "node:path";
 
+export type TemplateCategory = "admin" | "broadcast" | "events";
+
 export type EmailTemplate = {
   id: number;
   name: string;
-  category: "admin" | "broadcast";
+  category: TemplateCategory;
   body: string;
   notes: string;
   appendSignature: boolean;
@@ -26,8 +28,14 @@ type TemplateRow = {
   updated_by: string;
 };
 
+function normalizeCategory(raw: string | undefined): TemplateCategory {
+  const c = String(raw ?? "").trim();
+  if (c === "broadcast" || c === "events") return c;
+  return "admin";
+}
+
 function mapRow(row: TemplateRow): EmailTemplate {
-  const category = row.category === "broadcast" ? "broadcast" : "admin";
+  const category = normalizeCategory(row.category);
   return {
     id: row.id,
     name: row.name,
@@ -180,11 +188,11 @@ export function getDb(): Database.Database {
   return db;
 }
 
-export function listTemplates(
-  category?: EmailTemplate["category"],
-): EmailTemplate[] {
+export function listTemplates(category?: TemplateCategory): EmailTemplate[] {
   const rows =
-    category === "admin" || category === "broadcast"
+    category === "admin" ||
+    category === "broadcast" ||
+    category === "events"
       ? ((getDb()
           .prepare(
             `SELECT id, name, category, body, notes, append_signature, created_at, updated_at, updated_by
@@ -215,7 +223,7 @@ export function getTemplateById(id: number): EmailTemplate | undefined {
 
 export type NewTemplateInput = {
   name: string;
-  category?: "admin" | "broadcast";
+  category?: TemplateCategory;
   body: string;
   notes: string;
   appendSignature: boolean;
@@ -236,7 +244,7 @@ export function insertTemplate(input: NewTemplateInput): EmailTemplate {
     )
     .run({
       name: input.name,
-      category: input.category === "broadcast" ? "broadcast" : "admin",
+      category: normalizeCategory(input.category),
       body: input.body,
       notes: input.notes,
       append_signature: input.appendSignature ? 1 : 0,
@@ -262,9 +270,7 @@ export function updateTemplate(
     name: input.name ?? existing.name,
     category:
       input.category !== undefined
-        ? input.category === "broadcast"
-          ? "broadcast"
-          : "admin"
+        ? normalizeCategory(input.category)
         : existing.category,
     body: input.body ?? existing.body,
     notes: input.notes ?? existing.notes,
