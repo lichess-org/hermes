@@ -8,7 +8,9 @@ export async function loader({ request }: Route.LoaderArgs) {
   }
   const rawCategory = new URL(request.url).searchParams.get("category");
   const category =
-    rawCategory === "admin" || rawCategory === "broadcast"
+    rawCategory === "admin" ||
+    rawCategory === "broadcast" ||
+    rawCategory === "events"
       ? rawCategory
       : undefined;
   const templates = listTemplates(category);

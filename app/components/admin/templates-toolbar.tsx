@@ -1,4 +1,4 @@
-type CategoryFilter = "all" | "admin" | "broadcast";
+type CategoryFilter = "all" | "admin" | "broadcast" | "events";
 
 type TemplatesToolbarProps = {
   refreshBusy: boolean;
@@ -71,6 +71,7 @@ export function TemplatesToolbar({
             <option value="all">All</option>
             <option value="admin">Admin</option>
             <option value="broadcast">Broadcast</option>
+            <option value="events">Events</option>
           </select>
         </label>
         <button

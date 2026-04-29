@@ -51,7 +51,9 @@ export async function action({ request }: Route.ActionArgs) {
 
   const rawCategory = String(form.get("category") ?? "").trim();
   const category =
-    rawCategory === "admin" || rawCategory === "broadcast"
+    rawCategory === "admin" ||
+    rawCategory === "broadcast" ||
+    rawCategory === "events"
       ? rawCategory
       : "admin";
 
@@ -152,10 +154,15 @@ const HOUR_MS = 60 * 60 * 1000;
 
 type ActiveModal = null | "new" | number;
 
-type CategoryFilter = "all" | "admin" | "broadcast";
+type CategoryFilter = "all" | "admin" | "broadcast" | "events";
 
 function parseCategoryFilter(value: string | null): CategoryFilter {
-  if (value === "all" || value === "admin" || value === "broadcast") {
+  if (
+    value === "all" ||
+    value === "admin" ||
+    value === "broadcast" ||
+    value === "events"
+  ) {
     return value;
   }
   // Default filter for the page.
@@ -166,7 +173,9 @@ function parseExpandAll(value: string | null): boolean {
   return value === "1" || value === "true";
 }
 
-function formatCategory(category: EmailTemplate["category"]): string {
+function formatCategory(
+  category: EmailTemplate["category"] | Exclude<CategoryFilter, "all">,
+): string {
   return category.slice(0, 1).toUpperCase() + category.slice(1);
 }
 
@@ -187,7 +196,11 @@ export default function AdminIndex({ loaderData }: Route.ComponentProps) {
   const categoryFilter = parseCategoryFilter(searchParams.get(CATEGORY_QUERY));
   const expandAll = parseExpandAll(searchParams.get(EXPAND_QUERY));
   const defaultNewCategory: EmailTemplate["category"] =
-    categoryFilter === "broadcast" ? "broadcast" : "admin";
+    categoryFilter === "broadcast"
+      ? "broadcast"
+      : categoryFilter === "events"
+        ? "events"
+        : "admin";
 
   const visibleTemplates =
     categoryFilter === "all"
@@ -596,6 +609,7 @@ export default function AdminIndex({ loaderData }: Route.ComponentProps) {
                     >
                       <option value="admin">Admin</option>
                       <option value="broadcast">Broadcast</option>
+                      <option value="events">Events</option>
                     </select>
                   </label>
 
