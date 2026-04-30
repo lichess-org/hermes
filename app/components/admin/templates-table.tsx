@@ -1,6 +1,6 @@
 import { Fragment, useRef, useState } from "react";
-import sanitizeHtml from "sanitize-html";
 import type { EmailTemplate } from "~/lib/db.server";
+import { sanitizeTemplateHtml } from "~/lib/html-sanitize";
 import {
   formatFullTimestamp,
   formatRelativeTime,
@@ -47,46 +47,7 @@ function updatedAtIso(isoish: string): string | undefined {
 }
 
 function safeBodyHtml(bodyHtml: string): string {
-  return sanitizeHtml(bodyHtml, {
-    allowedTags: [
-      "a",
-      "b",
-      "blockquote",
-      "br",
-      "code",
-      "div",
-      "em",
-      "h1",
-      "h2",
-      "h3",
-      "h4",
-      "h5",
-      "h6",
-      "hr",
-      "i",
-      "li",
-      "ol",
-      "p",
-      "pre",
-      "span",
-      "strong",
-      "u",
-      "ul",
-    ],
-    allowedAttributes: {
-      a: ["href", "target", "rel"],
-      "*": ["style"],
-    },
-    allowedStyles: {
-      "*": {
-        color: [/^.*$/],
-        "font-weight": [/^.*$/],
-        "font-style": [/^.*$/],
-        "text-decoration": [/^.*$/],
-      },
-    },
-    allowedSchemes: ["http", "https", "mailto"],
-  });
+  return sanitizeTemplateHtml(bodyHtml);
 }
 
 /** `insertIndex` is the gap index in the full list (0 … ids.length). */
