@@ -18,9 +18,7 @@ function MenuBar({
   disabled: boolean;
 }) {
   if (!editor) {
-    return (
-      <div className="min-h-[2.25rem] border-b border-zinc-800 bg-zinc-900/50" />
-    );
+    return <div className="min-h-9 border-b border-zinc-800 bg-zinc-900/50" />;
   }
 
   const item = (
@@ -45,10 +43,26 @@ function MenuBar({
 
   return (
     <div className="flex flex-wrap gap-1 border-b border-zinc-800 bg-zinc-900/80 px-2 py-1.5">
-      {item("Bold", () => editor.chain().focus().toggleBold().run(), editor.isActive("bold"))}
-      {item("Italic", () => editor.chain().focus().toggleItalic().run(), editor.isActive("italic"))}
-      {item("Strike", () => editor.chain().focus().toggleStrike().run(), editor.isActive("strike"))}
-      {item("Code", () => editor.chain().focus().toggleCode().run(), editor.isActive("code"))}
+      {item(
+        "Bold",
+        () => editor.chain().focus().toggleBold().run(),
+        editor.isActive("bold"),
+      )}
+      {item(
+        "Italic",
+        () => editor.chain().focus().toggleItalic().run(),
+        editor.isActive("italic"),
+      )}
+      {item(
+        "Strike",
+        () => editor.chain().focus().toggleStrike().run(),
+        editor.isActive("strike"),
+      )}
+      {item(
+        "Code",
+        () => editor.chain().focus().toggleCode().run(),
+        editor.isActive("code"),
+      )}
       {item(
         "Bullet list",
         () => editor.chain().focus().toggleBulletList().run(),
@@ -67,7 +81,9 @@ function MenuBar({
       {item(
         "Link",
         () => {
-          const previous = editor.getAttributes("link").href as string | undefined;
+          const previous = editor.getAttributes("link").href as
+            | string
+            | undefined;
           const next = window.prompt(
             "Link URL (leave empty to remove)",
             previous ?? "https://",
@@ -78,7 +94,12 @@ function MenuBar({
             editor.chain().focus().extendMarkRange("link").unsetLink().run();
             return;
           }
-          editor.chain().focus().extendMarkRange("link").setLink({ href: trimmed }).run();
+          editor
+            .chain()
+            .focus()
+            .extendMarkRange("link")
+            .setLink({ href: trimmed })
+            .run();
         },
         editor.isActive("link"),
       )}
@@ -124,7 +145,7 @@ export function TemplateBodyEditor({
     editorProps: {
       attributes: {
         class:
-          "min-h-[12rem] px-3 py-2 text-sm text-zinc-100 focus:outline-none [&_a]:text-emerald-400 [&_a]:underline [&_a]:underline-offset-2 [&_a]:hover:text-emerald-300 [&_p]:my-1 [&_p:first-child]:mt-0 [&_ul]:my-2 [&_ol]:my-2 [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5 [&_li]:my-0.5 [&_blockquote]:my-2 [&_blockquote]:border-l-2 [&_blockquote]:border-zinc-600 [&_blockquote]:pl-3 [&_blockquote]:text-zinc-400 [&_h1]:text-xl [&_h1]:font-semibold [&_h2]:text-lg [&_h2]:font-semibold [&_h3]:text-base [&_h3]:font-semibold [&_code]:rounded [&_code]:bg-zinc-800 [&_code]:px-1 [&_pre]:my-2 [&_pre]:overflow-x-auto [&_pre]:rounded-md [&_pre]:bg-zinc-950 [&_pre]:p-3 [&_hr]:my-4 [&_hr]:border-zinc-700",
+          "min-h-[12rem] px-3 py-2 text-sm text-zinc-100 focus:outline-none [&_a]:text-emerald-400 [&_a]:underline [&_a]:underline-offset-2 [&_a]:hover:text-emerald-300 [&_p]:my-3 [&_p:first-child]:mt-0 [&_ul]:my-2 [&_ol]:my-2 [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5 [&_li]:my-0.5 [&_blockquote]:my-2 [&_blockquote]:border-l-2 [&_blockquote]:border-zinc-600 [&_blockquote]:pl-3 [&_blockquote]:text-zinc-400 [&_h1]:text-xl [&_h1]:font-semibold [&_h2]:text-lg [&_h2]:font-semibold [&_h3]:text-base [&_h3]:font-semibold [&_code]:rounded [&_code]:bg-zinc-800 [&_code]:px-1 [&_pre]:my-2 [&_pre]:overflow-x-auto [&_pre]:rounded-md [&_pre]:bg-zinc-950 [&_pre]:p-3 [&_hr]:my-4 [&_hr]:border-zinc-700",
       },
     },
     onUpdate: ({ editor: ed }) => {

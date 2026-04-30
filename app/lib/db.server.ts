@@ -1,6 +1,7 @@
 import Database from "better-sqlite3";
 import fs from "node:fs";
 import path from "node:path";
+import { sanitizeTemplateHtml } from "~/lib/html-sanitize";
 
 export type TemplateCategory = "admin" | "broadcast" | "events";
 
@@ -245,8 +246,8 @@ export function insertTemplate(input: NewTemplateInput): EmailTemplate {
     .run({
       name: input.name,
       category: normalizeCategory(input.category),
-      body: input.body,
-      notes: input.notes,
+      body: sanitizeTemplateHtml(input.body),
+      notes: sanitizeTemplateHtml(input.notes),
       append_signature: input.appendSignature ? 1 : 0,
       sort_order: sortOrder,
       updated_by: input.updatedBy,
@@ -272,8 +273,14 @@ export function updateTemplate(
       input.category !== undefined
         ? normalizeCategory(input.category)
         : existing.category,
-    body: input.body ?? existing.body,
-    notes: input.notes ?? existing.notes,
+    body:
+      input.body !== undefined
+        ? sanitizeTemplateHtml(input.body)
+        : existing.body,
+    notes:
+      input.notes !== undefined
+        ? sanitizeTemplateHtml(input.notes)
+        : existing.notes,
     updated_by:
       input.updatedBy !== undefined ? input.updatedBy : existing.updatedBy,
     append_signature:
