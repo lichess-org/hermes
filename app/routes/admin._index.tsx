@@ -141,7 +141,7 @@ export async function action({ request }: Route.ActionArgs) {
       .split(",")
       .map((s) => Number(s.trim()))
       .filter((n) => Number.isInteger(n) && n > 0);
-    if (!reorderTemplates(ids, by)) {
+    if (!reorderTemplates(ids)) {
       return { formError: "Invalid template order." as const };
     }
     return { reordered: true as const };

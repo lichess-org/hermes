@@ -191,9 +191,7 @@ export function getDb(): Database.Database {
 
 export function listTemplates(category?: TemplateCategory): EmailTemplate[] {
   const rows =
-    category === "admin" ||
-    category === "broadcast" ||
-    category === "events"
+    category === "admin" || category === "broadcast" || category === "events"
       ? ((getDb()
           .prepare(
             `SELECT id, name, category, body, notes, append_signature, created_at, updated_at, updated_by
@@ -310,10 +308,7 @@ export function updateTemplate(
   return getTemplateById(id);
 }
 
-export function reorderTemplates(
-  orderedIds: number[],
-  updatedBy: string,
-): boolean {
+export function reorderTemplates(orderedIds: number[]): boolean {
   const database = getDb();
   const rows = database.prepare(`SELECT id FROM email_templates`).all() as {
     id: number;
@@ -333,14 +328,12 @@ export function reorderTemplates(
 
   const stmt = database.prepare(
     `UPDATE email_templates
-     SET sort_order = ?,
-         updated_at = datetime('now'),
-         updated_by = ?
+     SET sort_order = ?
      WHERE id = ?`,
   );
   const tx = database.transaction(() => {
     orderedIds.forEach((id, index) => {
-      stmt.run(index, updatedBy, id);
+      stmt.run(index, id);
     });
   });
   tx();
