@@ -1,6 +1,5 @@
 import { Fragment, useRef, useState } from "react";
 import type { EmailTemplate } from "~/lib/db.server";
-import { sanitizeTemplateHtml } from "~/lib/html-sanitize";
 import {
   formatFullTimestamp,
   formatRelativeTime,
@@ -44,10 +43,6 @@ function hasNotes(notesHtml: string): boolean {
 function updatedAtIso(isoish: string): string | undefined {
   const d = parseStoredDate(isoish);
   return Number.isNaN(d.getTime()) ? undefined : d.toISOString();
-}
-
-function safeBodyHtml(bodyHtml: string): string {
-  return sanitizeTemplateHtml(bodyHtml);
 }
 
 /** `insertIndex` is the gap index in the full list (0 … ids.length). */
@@ -278,7 +273,7 @@ export function TemplatesTable({
                   {expandAll ? (
                     <div
                       className="prose prose-invert prose-sm max-w-none wrap-break-word [&_ul]:list-disc [&_ul]:pl-6 [&_ul]:my-2 [&_ol]:list-decimal [&_ol]:pl-6 [&_ol]:my-2 [&_li]:my-1"
-                      dangerouslySetInnerHTML={{ __html: safeBodyHtml(t.body) }}
+                      dangerouslySetInnerHTML={{ __html: t.body }}
                     />
                   ) : (
                     <div

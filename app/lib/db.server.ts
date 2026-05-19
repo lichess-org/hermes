@@ -2,8 +2,10 @@ import Database from "better-sqlite3";
 import fs from "node:fs";
 import path from "node:path";
 import { sanitizeTemplateHtml } from "~/lib/html-sanitize";
-
-export type TemplateCategory = "admin" | "broadcast" | "events";
+import {
+  isTemplateCategory,
+  type TemplateCategory,
+} from "~/lib/template-categories";
 
 export type EmailTemplate = {
   id: number;
@@ -31,8 +33,7 @@ type TemplateRow = {
 
 function normalizeCategory(raw: string | undefined): TemplateCategory {
   const c = String(raw ?? "").trim();
-  if (c === "broadcast" || c === "events") return c;
-  return "admin";
+  return isTemplateCategory(c) ? c : "admin";
 }
 
 function mapRow(row: TemplateRow): EmailTemplate {
@@ -41,8 +42,8 @@ function mapRow(row: TemplateRow): EmailTemplate {
     id: row.id,
     name: row.name,
     category,
-    body: row.body,
-    notes: row.notes ?? "",
+    body: sanitizeTemplateHtml(row.body),
+    notes: sanitizeTemplateHtml(row.notes ?? ""),
     appendSignature: row.append_signature === 1,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
@@ -191,7 +192,7 @@ export function getDb(): Database.Database {
 
 export function listTemplates(category?: TemplateCategory): EmailTemplate[] {
   const rows =
-    category === "admin" || category === "broadcast" || category === "events"
+    category !== undefined
       ? ((getDb()
           .prepare(
             `SELECT id, name, category, body, notes, append_signature, created_at, updated_at, updated_by

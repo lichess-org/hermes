@@ -15,6 +15,12 @@ import {
   updateTemplate,
 } from "~/lib/db.server";
 import { formatFullTimestamp, formatRelativeTime } from "~/lib/time-formatting";
+import {
+  formatCategoryLabel,
+  parseCategoryFilter,
+  parseTemplateCategory,
+  TEMPLATE_CATEGORIES,
+} from "~/lib/template-categories";
 
 const TEMPLATE_QUERY = "template";
 const CATEGORY_QUERY = "category";
@@ -49,13 +55,7 @@ export async function action({ request }: Route.ActionArgs) {
     return { formError: "Not signed in." as const };
   }
 
-  const rawCategory = String(form.get("category") ?? "").trim();
-  const category =
-    rawCategory === "admin" ||
-    rawCategory === "broadcast" ||
-    rawCategory === "events"
-      ? rawCategory
-      : "admin";
+  const category = parseTemplateCategory(String(form.get("category") ?? ""));
 
   if (intent === "delete") {
     const id = Number(form.get("id"));
@@ -154,29 +154,8 @@ const HOUR_MS = 60 * 60 * 1000;
 
 type ActiveModal = null | "new" | number;
 
-type CategoryFilter = "all" | "admin" | "broadcast" | "events";
-
-function parseCategoryFilter(value: string | null): CategoryFilter {
-  if (
-    value === "all" ||
-    value === "admin" ||
-    value === "broadcast" ||
-    value === "events"
-  ) {
-    return value;
-  }
-  // Default filter for the page.
-  return "admin";
-}
-
 function parseExpandAll(value: string | null): boolean {
   return value === "1" || value === "true";
-}
-
-function formatCategory(
-  category: EmailTemplate["category"] | Exclude<CategoryFilter, "all">,
-): string {
-  return category.slice(0, 1).toUpperCase() + category.slice(1);
 }
 
 function isEmptyNotesHtml(html: string): boolean {
@@ -196,11 +175,7 @@ export default function AdminIndex({ loaderData }: Route.ComponentProps) {
   const categoryFilter = parseCategoryFilter(searchParams.get(CATEGORY_QUERY));
   const expandAll = parseExpandAll(searchParams.get(EXPAND_QUERY));
   const defaultNewCategory: EmailTemplate["category"] =
-    categoryFilter === "broadcast"
-      ? "broadcast"
-      : categoryFilter === "events"
-        ? "events"
-        : "admin";
+    categoryFilter === "all" ? "admin" : categoryFilter;
 
   const visibleTemplates =
     categoryFilter === "all"
@@ -476,7 +451,7 @@ export default function AdminIndex({ loaderData }: Route.ComponentProps) {
         <p className="rounded-lg border border-dashed border-zinc-800 bg-zinc-900/50 px-4 py-8 text-center text-sm text-zinc-500">
           {categoryFilter === "all"
             ? "No templates yet."
-            : `No ${formatCategory(categoryFilter)} templates yet.`}
+            : `No ${formatCategoryLabel(categoryFilter)} templates yet.`}
         </p>
       ) : (
         <TemplatesTable
@@ -607,9 +582,11 @@ export default function AdminIndex({ loaderData }: Route.ComponentProps) {
                       }
                       className="w-full rounded-md border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-white focus:border-emerald-600 focus:outline-none focus:ring-1 focus:ring-emerald-600 disabled:opacity-50"
                     >
-                      <option value="admin">Admin</option>
-                      <option value="broadcast">Broadcast</option>
-                      <option value="events">Events</option>
+                      {TEMPLATE_CATEGORIES.map((category) => (
+                        <option key={category} value={category}>
+                          {formatCategoryLabel(category)}
+                        </option>
+                      ))}
                     </select>
                   </label>
 
