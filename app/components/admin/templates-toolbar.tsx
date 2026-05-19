@@ -1,4 +1,8 @@
-type CategoryFilter = "all" | "admin" | "broadcast" | "events";
+import {
+  formatCategoryLabel,
+  TEMPLATE_CATEGORIES,
+  type CategoryFilter,
+} from "~/lib/template-categories";
 
 type TemplatesToolbarProps = {
   refreshBusy: boolean;
@@ -69,9 +73,11 @@ export function TemplatesToolbar({
             className="rounded-md border border-zinc-700 bg-zinc-950 px-2 py-1.5 text-sm text-white focus:border-emerald-600 focus:outline-none focus:ring-1 focus:ring-emerald-600"
           >
             <option value="all">All</option>
-            <option value="admin">Admin</option>
-            <option value="broadcast">Broadcast</option>
-            <option value="events">Events</option>
+            {TEMPLATE_CATEGORIES.map((category) => (
+              <option key={category} value={category}>
+                {formatCategoryLabel(category)}
+              </option>
+            ))}
           </select>
         </label>
         <button
